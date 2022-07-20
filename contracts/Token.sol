@@ -11,8 +11,6 @@ import '@openzeppelin/contracts/utils/Strings.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 
-import './interfaces/INftUriResolver.sol';
-import './interfaces/IPriceResolver.sol';
 import './libraries/ERC721Enumerable.sol';
 
 interface IWETH9 is IERC20 {
@@ -66,8 +64,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     IJBDirectory _jbxDirectory,
     uint256 _maxSupply,
     uint256 _unitPrice,
-    uint256 _mintAllowance,
-    string memory _provenanceHash
+    uint256 _mintAllowance
   ) ERC721Enumerable(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
@@ -76,7 +73,6 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     maxSupply = _maxSupply;
     unitPrice = _unitPrice;
     mintAllowance = _mintAllowance;
-    provenanceHash = _provenanceHash;
   }
 
   //*********************************************************************//
@@ -107,7 +103,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     uint256 accountBalance = balanceOf(msg.sender);
-    if (accountBalance < mintAllowance) {
+    if (accountBalance == mintAllowance) {
       revert ALLOWANCE_EXHAUSTED();
     }
 
