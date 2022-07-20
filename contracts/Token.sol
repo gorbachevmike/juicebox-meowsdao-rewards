@@ -1,79 +1,65 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.6;
 
-import '@jbx-protocol/contracts-v2/contracts/JBETHERC20ProjectPayer.sol';
+import '@jbx-protocol/contracts-v2/contracts/interfaces/IJBDirectory.sol';
+import '@jbx-protocol/contracts-v2/contracts/interfaces/IJBPaymentTerminal.sol';
+import '@jbx-protocol/contracts-v2/contracts/libraries/JBTokens.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';
 
 import './interfaces/INftUriResolver.sol';
 import './interfaces/IPriceResolver.sol';
 import './libraries/ERC721Enumerable.sol';
 
-contract Token is ERC721Enumerable, JBETHERC20ProjectPayer, ReentrancyGuard {
+contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   using Strings for uint256;
 
+  error PROVENACE_REASSIGNMENT();
+  error ALREADY_REVEALED();
   error ALLOWANCE_EXHAUSTED();
   error INCORRECT_PAYMENT(uint256);
   error SUPPLY_EXHAUSTED();
+  error PAYMENT_FAILURE();
 
-  IPriceResolver private priceResolver;
-  INftUriResolver private tokenUriResolver;
-  string private baseUri;
+  IQuoter public constant uniswapQuoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
 
-  bool public saleIsActive = false;
-  string public PROVENANCE = '';
+  IJBDirectory jbxDirectory;
+  uint256 jbxProjectId;
 
-  /**
-    @notice URI containing Opensea-style metadata.
-  */
-  string public OPENSEA_STORE_METADATA = '';
+  string public baseUri;
+  string public contractUri;
+  uint256 public maxSupply;
+  uint256 public unitPrice;
+  uint256 public mintAllowance;
+  string public provenanceHash;
 
-  uint256 public constant PER_KITTY_PRICE = 50000000000000000;
-  uint256 public constant MAX_KITTY_ALLOWANCE = 25;
-
-  uint256 public MAX_TOTAL_KITTIES;
-  uint256 public REVEAL_TIMESTAMP;
-  uint256 public startingIndexBlock;
-  uint256 public startingIndex;
+  bool isRevealed;
 
   //*********************************************************************//
   // -------------------------- constructor ---------------------------- //
   //*********************************************************************//
   constructor(
-    string memory name,
-    string memory symbol,
-    uint256 maxNftSupply,
-    uint256 saleStart,
-    IPriceResolver _priceResolver,
-    INftUriResolver _tokenUriResolver
-  )
-    ERC721Enumerable(name, symbol)
-    JBETHERC20ProjectPayer(
-      1,
-      payable(msg.sender),
-      false,
-      '',
-      '',
-      false,
-      IJBDirectory(address(0)),
-      msg.sender
-    )
-  {
-    // uint256 _defaultProjectId,
-    // address payable _defaultBeneficiary,
-    // bool _defaultPreferClaimedTokens,
-    // string memory _defaultMemo,
-    // bytes memory _defaultMetadata,
-    // bool _defaultPreferAddToBalance,
-    // IJBDirectory _directory,
-    // address _owner
-
-    MAX_TOTAL_KITTIES = maxNftSupply;
-    REVEAL_TIMESTAMP = saleStart + (86400 * 5);
-
-    priceResolver = _priceResolver;
-    tokenUriResolver = _tokenUriResolver;
+    string memory _name,
+    string memory _symbol,
+    string memory _baseUri,
+    string memory _contractUri,
+    uint256 _jbxProjectId,
+    IJBDirectory _jbxDirectory,
+    uint256 _maxSupply,
+    uint256 _unitPrice,
+    uint256 _mintAllowance,
+    string memory _provenanceHash
+  ) ERC721Enumerable(_name, _symbol) {
+    baseUri = _baseUri;
+    contractUri = _contractUri;
+    jbxDirectory = _jbxDirectory;
+    jbxProjectId = _jbxProjectId;
+    maxSupply = _maxSupply;
+    unitPrice = _unitPrice;
+    mintAllowance = _mintAllowance;
+    provenanceHash = _provenanceHash;
   }
 
   //*********************************************************************//
@@ -84,101 +70,57 @@ contract Token is ERC721Enumerable, JBETHERC20ProjectPayer, ReentrancyGuard {
     @notice Get contract metadata to make OpenSea happy.
     */
   function contractURI() public view returns (string memory) {
-    return OPENSEA_STORE_METADATA;
+    return contractUri;
   }
 
-  function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-    if (address(tokenUriResolver) != address(0)) {
-      return tokenUriResolver.tokenURI(_tokenId);
-    } else {
-      return string(abi.encodePacked(baseUri, _tokenId.toString())); // TODO: this could be the reveal mechanic
-    }
+  /**
+    @dev If the token has been set as "revealed", returned uri will append the token id
+    */
+  function tokenURI(uint256 _tokenId) public view override returns (string memory uri) {
+    uri = isRevealed ? baseUri : string(abi.encodePacked(baseUri, _tokenId.toString()));
   }
 
   //*********************************************************************//
   // ---------------------- external transactions ---------------------- //
   //*********************************************************************//
 
-  function mint() public payable {
+  function mint() public payable nonReentrant {
+    if (totalSupply() == maxSupply) {
+      revert SUPPLY_EXHAUSTED();
+    }
+
     uint256 accountBalance = balanceOf(msg.sender);
-    if (accountBalance < 10) {
-      // TODO: const
+    if (accountBalance < mintAllowance) {
       revert ALLOWANCE_EXHAUSTED();
     }
 
+    // TODO: consider beaking this out
     uint256 expectedPrice;
     if (accountBalance != 0 && accountBalance != 2 && accountBalance != 4) {
-      expectedPrice = accountBalance * 0.0125 ether; // TODO: const
+      expectedPrice = accountBalance * unitPrice;
     }
     if (msg.value != expectedPrice) {
       revert INCORRECT_PAYMENT(expectedPrice);
     }
 
     if (msg.value > 0) {
-        // NOTE: move funds to jbx project w/o issuing tokens
-        _addToBalanceOf(defaultProjectId, JBTokens.ETH, msg.value, 18, defaultMemo, defaultMetadata);
+      // NOTE: move funds to jbx project w/o issuing tokens
+      IJBPaymentTerminal terminal = jbxDirectory.primaryTerminalOf(jbxProjectId, JBTokens.ETH);
+      if (address(terminal) == address(0)) {
+        revert PAYMENT_FAILURE();
+      }
+      terminal.addToBalanceOf(jbxProjectId, msg.value, JBTokens.ETH, 'MEOWs DAO Token Mint', '');
     }
 
-    uint256 tokenId = totalSupply() + 1; // TODO: consider randomizing id, but the assets already have randomized content
-
-    if (tokenId > 6969) { // TODO: const
-        revert SUPPLY_EXHAUSTED();
-    }
-
+    uint256 tokenId = generateTokenId(msg.sender, msg.value, block.number);
     _beforeTokenTransfer(address(0), msg.sender, tokenId);
     _mint(msg.sender, tokenId);
   }
 
-  function mintFor(address _account) public payable onlyOwner {
-    if (msg.value > 0) {
-        // NOTE: move funds to jbx project w/o issuing tokens
-        _addToBalanceOf(defaultProjectId, JBTokens.ETH, msg.value, 18, defaultMemo, defaultMetadata);
-    }
-
-    uint256 tokenId = totalSupply() + 1; // TODO: consider randomizing id, but the assets already have randomized content
+  function mintFor(address _account) public onlyOwner {
+    uint256 tokenId = generateTokenId(_account, unitPrice, block.number);
     _beforeTokenTransfer(address(0), _account, tokenId);
     _mint(_account, tokenId);
-  }
-
-  /**
-    @notice Mint.
-    */
-  function mint(uint256 numberOfTokens) public payable {
-    require(saleIsActive, 'Sale must be active to mint Mr. Whiskers');
-    require(numberOfTokens <= MAX_KITTY_ALLOWANCE, 'Can only mint 25 tokens at a time');
-    require(
-      totalSupply() + numberOfTokens <= MAX_TOTAL_KITTIES,
-      'Purchase would exceed max supply of Mr. Whiskers'
-    );
-
-    // TODO: price resolver
-
-    // require(
-    //     PER_KITTY_PRICE.mul(numberOfTokens) <= msg.value,
-    //     'Ether value sent is not correct'
-    // );
-
-    // TODO: JBETHERC20ProjectPayer
-
-    for (uint256 i = 0; i < numberOfTokens; i++) {
-      uint256 mintIndex = totalSupply();
-      if (totalSupply() < MAX_TOTAL_KITTIES) {
-        _safeMint(msg.sender, mintIndex);
-      }
-    }
-
-    /*
-        If we haven't set the starting index and this is either 
-            1) the last saleable token or 
-            2) the first token to be sold after
-        the end of pre-sale, set the starting index block
-    */
-    if (
-      startingIndexBlock == 0 &&
-      (totalSupply() == MAX_TOTAL_KITTIES || block.timestamp >= REVEAL_TIMESTAMP)
-    ) {
-      startingIndexBlock = block.number;
-    }
   }
 
   //*********************************************************************//
@@ -186,40 +128,22 @@ contract Token is ERC721Enumerable, JBETHERC20ProjectPayer, ReentrancyGuard {
   //*********************************************************************//
 
   /**
-    @notice Pay the electricity bill
-    */
-  function withdraw() public onlyOwner {
-    payable(msg.sender).transfer(address(this).balance);
-  }
+    @notice Set provenance hash.
 
-  /**
-    @notice Set aside a portion of the total supply for the team
-    */
-  function reserveKittyCats() public onlyOwner {
-    uint256 supply = totalSupply();
-    uint256 i;
-    for (i = 0; i < 25; i++) {
-      _safeMint(msg.sender, supply + i);
+    @dev This operation can only be executed once.
+   */
+  function setProvenanceHash(string memory _provenanceHash) public onlyOwner {
+    if (bytes(provenanceHash).length == 0) {
+        revert PROVENACE_REASSIGNMENT();
     }
-  }
-
-  function setRevealTimestamp(uint256 revealTimeStamp) public onlyOwner {
-    REVEAL_TIMESTAMP = revealTimeStamp;
+    provenanceHash = _provenanceHash;
   }
 
   /**
-   *  @dev Set provenance once it's calculated
+    @notice Metadata URI for token details in OpenSea format.
    */
-  function setProvenanceHash(string memory provenanceHash) public onlyOwner {
-    require(bytes(PROVENANCE).length == 0, 'Provenance has already been set, no do-overs!');
-    PROVENANCE = provenanceHash;
-  }
-
-  /**
-   *  @dev Set metadata to make OpenSea happy
-   */
-  function setContractURI(string memory _contractMetadataURI) public onlyOwner {
-    OPENSEA_STORE_METADATA = _contractMetadataURI;
+  function setContractURI(string memory _contractUri) public onlyOwner {
+    contractUri = _contractUri;
   }
 
   /**
@@ -227,60 +151,46 @@ contract Token is ERC721Enumerable, JBETHERC20ProjectPayer, ReentrancyGuard {
 
     @dev URI must include the trailing slash.
     */
-  function setBaseURI(string memory _baseUri) public onlyOwner {
+  function setBaseURI(string memory _baseUri, bool _reveal) public onlyOwner {
+    if (isRevealed && !_reveal) {
+        revert ALREADY_REVEALED();
+    }
+
     baseUri = _baseUri;
-  }
-
-  /**
-    @notice Set token URI resolver.
-
-    @dev Token URI resolver will be used instead of the base URI if it is set.
-    */
-  function setTokenUriResolver(INftUriResolver _resolver) public onlyOwner {
-    tokenUriResolver = _resolver;
-  }
-
-  /**
-   *  @dev Pause sale if active, make active if paused
-   */
-  function flipSaleState() public onlyOwner {
-    saleIsActive = !saleIsActive;
-  }
-
-  /**
-   * @dev Set the starting index for the collection
-   */
-  function setStartingIndex() public onlyOwner {
-    require(startingIndex == 0, 'Starting index is already set');
-    require(startingIndexBlock != 0, 'Starting index block must be set');
-    startingIndex = uint256(blockhash(startingIndexBlock)) % MAX_TOTAL_KITTIES;
-    // Just a sanity case in the worst case if this function is called late (EVM only stores last 256 block hashes)
-    if (block.number - startingIndexBlock > 255) {
-      startingIndex = uint256(blockhash(block.number - 1)) % MAX_TOTAL_KITTIES;
-    }
-    // Prevent default sequence
-    if (startingIndex == 0) {
-      ++startingIndex;
-    }
-  }
-
-  /**
-   * @dev Set the starting index block for the collection, essentially unblocking
-   * setting starting index
-   */
-  function emergencySetStartingIndexBlock() public onlyOwner {
-    require(startingIndex == 0, 'Starting index is already set');
-    startingIndexBlock = block.number;
+    isRevealed = _reveal;
   }
 
   function supportsInterface(bytes4 interfaceId)
     public
     view
-    override(ERC721Enumerable, JBETHERC20ProjectPayer)
+    override(ERC721Enumerable)
     returns (bool)
   {
-    return
-      JBETHERC20ProjectPayer.supportsInterface(interfaceId) ||
-      ERC721Enumerable.supportsInterface(interfaceId);
+    return ERC721Enumerable.supportsInterface(interfaceId);
+  }
+
+  // TODO: consider beaking this out
+  function generateTokenId(
+    address _account,
+    uint256 _amount,
+    uint256 _blockNumber
+  ) private returns (uint256 tokenId) {
+    if (totalSupply() == maxSupply) {
+      revert SUPPLY_EXHAUSTED();
+    }
+
+    // TODO: probably cheaper to go to the specific pair and divide balances
+    uint256 ethPrice = uniswapQuoter.quoteExactInputSingle(
+      address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2), // weth
+      address(0x6B175474E89094C44Da98b954EedeAC495271d0F), // dai
+      3000, // fee
+      _amount,
+      0 // sqrtPriceLimitX96
+    );
+
+    tokenId = uint256(keccak256(abi.encodePacked(_account, _blockNumber, ethPrice))) % maxSupply;
+    while (_ownerOf[tokenId] != address(0)) {
+      tokenId = ++tokenId % maxSupply;
+    }
   }
 }
