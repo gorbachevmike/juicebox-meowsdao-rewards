@@ -68,13 +68,9 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     IJBDirectory _jbxDirectory,
     uint256 _maxSupply,
     uint256 _unitPrice,
-<<<<<<< HEAD
-    uint256 immutable _mintAllowance
-=======
     uint256 _mintAllowance,
     IQuoter _uniswapQuoter,
     ISwapRouter _uniswapRouter
->>>>>>> 994fbff817cdbcae8d04620b5601352eb7a038a6
   ) ERC721Enumerable(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
@@ -134,16 +130,16 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
       if (address(terminal) == address(0)) {
         revert PAYMENT_FAILURE();
       }
-      terminal.addToBalanceOf(
+
+      terminal.pay(
         jbxProjectId,
-        JBTokens.ETH,
         msg.value,
-        18,
+        JBTokens.ETH,
         msg.sender,
         0,
         false,
-        abi.encodePacked('at ', block.number.toString(), ' ', msg.sender.toString(), ' purchased a kitty cat for ', msg.value.toString()),
-        abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', now.toString(), '.')        
+        string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', msg.value.toString())),
+        abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
       );
     }
 
