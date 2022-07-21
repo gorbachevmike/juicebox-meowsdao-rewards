@@ -64,7 +64,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     IJBDirectory _jbxDirectory,
     uint256 _maxSupply,
     uint256 _unitPrice,
-    uint256 _mintAllowance
+    uint256 immutable _mintAllowance
   ) ERC721Enumerable(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
@@ -90,7 +90,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     @dev If the token has been set as "revealed", returned uri will append the token id
     */
   function tokenURI(uint256 _tokenId) public view override returns (string memory uri) {
-    uri = isRevealed ? baseUri : string(abi.encodePacked(baseUri, _tokenId.toString()));
+    uri = isRevealed ? string(abi.encodePacked(baseUri, _tokenId.toString())) : baseUri;
   }
 
   //*********************************************************************//
@@ -109,7 +109,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     // TODO: consider beaking this out
     uint256 expectedPrice;
-    if (accountBalance != 0 && accountBalance != 2 && accountBalance != 4) {
+    if (accountBalance != 0 &&  accountBalance != 2 && accountBalance != 4) {
       expectedPrice = accountBalance * unitPrice;
     }
     if (msg.value != expectedPrice) {
@@ -117,12 +117,22 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     if (msg.value > 0) {
-      // NOTE: move funds to jbx project w/o issuing tokens
+      // NOTE: move funds to jbx project w/o issuing tokens      
       IJBPaymentTerminal terminal = jbxDirectory.primaryTerminalOf(jbxProjectId, JBTokens.ETH);
       if (address(terminal) == address(0)) {
         revert PAYMENT_FAILURE();
       }
-      terminal.addToBalanceOf(jbxProjectId, msg.value, JBTokens.ETH, 'MEOWs DAO Token Mint', '');
+      terminal.addToBalanceOf(
+        jbxProjectId,
+        JBTokens.ETH,
+        msg.value,
+        18,
+        msg.sender,
+        0,
+        false,
+        abi.encodePacked('at ', block.number.toString(), ' ', msg.sender.toString(), ' purchased a kitty cat for ', msg.value.toString()),
+        abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', now.toString(), '.')        
+      );
     }
 
     uint256 tokenId = generateTokenId(msg.sender, msg.value, block.number);
