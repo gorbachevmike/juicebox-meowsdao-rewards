@@ -13,6 +13,8 @@ import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 
 import './libraries/ERC721Enumerable.sol';
 
+import 'hardhat/console.sol';
+
 interface IWETH9 is IERC20 {
   function deposit() external payable;
 
@@ -33,9 +35,10 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
 
   address public constant WETH9 = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
   address public constant DAI = address(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-  IQuoter public constant uniswapQuoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
-  ISwapRouter public constant uniswapRouter =
-    ISwapRouter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
+  // IQuoter public constant uniswapQuoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
+  IQuoter public uniswapQuoter; // for testing
+  // ISwapRouter public constant uniswapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+  ISwapRouter public uniswapRouter; // for testing
 
   IJBDirectory jbxDirectory;
   uint256 jbxProjectId;
@@ -44,13 +47,14 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   string public contractUri;
   uint256 public maxSupply;
   uint256 public unitPrice;
-  uint256 public mintAllowance;
+  uint256 public immutable mintAllowance;
   string public provenanceHash;
   mapping(address => bool) public acceptableTokens;
   bool immediateTokenLiquidation;
-  uint256 tokenPriceMargin; // in bps
+  uint256 tokenPriceMargin = 10_000; // in bps
 
   bool isRevealed;
+  bool isPaused;
 
   //*********************************************************************//
   // -------------------------- constructor ---------------------------- //
@@ -64,7 +68,9 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     IJBDirectory _jbxDirectory,
     uint256 _maxSupply,
     uint256 _unitPrice,
-    uint256 _mintAllowance
+    uint256 _mintAllowance,
+    IQuoter _uniswapQuoter,
+    ISwapRouter _uniswapRouter
   ) ERC721Enumerable(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
@@ -73,6 +79,8 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     maxSupply = _maxSupply;
     unitPrice = _unitPrice;
     mintAllowance = _mintAllowance;
+    uniswapQuoter = _uniswapQuoter;
+    uniswapRouter = _uniswapRouter;
   }
 
   //*********************************************************************//
@@ -90,7 +98,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     @dev If the token has been set as "revealed", returned uri will append the token id
     */
   function tokenURI(uint256 _tokenId) public view override returns (string memory uri) {
-    uri = isRevealed ? baseUri : string(abi.encodePacked(baseUri, _tokenId.toString()));
+    uri = !isRevealed ? baseUri : string(abi.encodePacked(baseUri, _tokenId.toString()));
   }
 
   //*********************************************************************//
@@ -139,7 +147,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     uint256 accountBalance = balanceOf(msg.sender);
-    if (accountBalance < mintAllowance) {
+    if (accountBalance > mintAllowance) {
       revert ALLOWANCE_EXHAUSTED();
     }
 
@@ -194,13 +202,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         IWETH9(WETH9).withdraw(ethProceeds);
 
-        terminal.addToBalanceOf(
-          jbxProjectId,
-          ethProceeds,
-          JBTokens.ETH,
-          'MEOWs DAO Token Mint',
-          ''
-        );
+        terminal.addToBalanceOf(jbxProjectId, ethProceeds, JBTokens.ETH, 'MEOWs DAO Token Mint', '');
       } else {
         IJBPaymentTerminal terminal = jbxDirectory.primaryTerminalOf(jbxProjectId, address(_token));
         if (address(terminal) == address(0)) {
@@ -223,13 +225,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
           revert PAYMENT_FAILURE();
         }
 
-        terminal.addToBalanceOf(
-          jbxProjectId,
-          requiredTokenAmount,
-          address(_token),
-          'MEOWs DAO Token Mint',
-          ''
-        );
+        terminal.addToBalanceOf(jbxProjectId, requiredTokenAmount, address(_token), 'MEOWs DAO Token Mint', '');
       }
     }
 
@@ -241,6 +237,12 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   //*********************************************************************//
   // -------------------- priviledged transactions --------------------- //
   //*********************************************************************//
+
+  function setPause(bool pause) external onlyOwner {
+    isPaused = pause;
+  }
+
+  // TODO: presale
 
   function mintFor(address _account) public onlyOwner {
     uint256 tokenId = generateTokenId(_account, unitPrice, block.number);
@@ -271,10 +273,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     acceptableTokens[_token] = _accept;
   }
 
-  function updatePaymentTokenParams(bool _immediateTokenLiquidation, uint256 _tokenPriceMargin)
-    public
-    onlyOwner
-  {
+  function updatePaymentTokenParams(bool _immediateTokenLiquidation, uint256 _tokenPriceMargin) public onlyOwner {
     if (tokenPriceMargin > 10_000) {
       revert INVALID_MARGIN();
     }
@@ -296,16 +295,11 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     isRevealed = _reveal;
   }
 
-  function supportsInterface(bytes4 interfaceId)
-    public
-    view
-    override(ERC721Enumerable)
-    returns (bool)
-  {
+  function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable) returns (bool) {
     return ERC721Enumerable.supportsInterface(interfaceId);
   }
 
-  // TODO: consider beaking this out
+  // TODO: consider breaking this out
   function generateTokenId(
     address _account,
     uint256 _amount,
