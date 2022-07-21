@@ -212,7 +212,16 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         IWETH9(WETH9).withdraw(ethProceeds);
 
-        terminal.addToBalanceOf(jbxProjectId, ethProceeds, JBTokens.ETH, 'MEOWs DAO Token Mint', '');
+        terminal.pay(
+            jbxProjectId,
+            ethProceeds,
+            JBTokens.ETH,
+            msg.sender,
+            0,
+            false,
+            string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+            abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
+        );
       } else {
         IJBPaymentTerminal terminal = jbxDirectory.primaryTerminalOf(jbxProjectId, address(_token));
         if (address(terminal) == address(0)) {
@@ -235,7 +244,16 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
           revert PAYMENT_FAILURE();
         }
 
-        terminal.addToBalanceOf(jbxProjectId, requiredTokenAmount, address(_token), 'MEOWs DAO Token Mint', '');
+        terminal.pay(
+            jbxProjectId,
+            requiredTokenAmount,
+            address(_token),
+            msg.sender,
+            0,
+            false,
+            string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+            abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
+        );
       }
     }
 
