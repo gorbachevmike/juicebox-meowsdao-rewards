@@ -117,4 +117,9 @@ describe('MEOWs DAO Token Mint Tests: Ether', () => {
         await expect(token.connect(accounts[1])['mint()']({value: tokenUnitPrice})).to.emit(token, 'Transfer');
         await expect(token.connect(accounts[1])['mint()']({value: 0})).to.be.revertedWith('SUPPLY_EXHAUSTED()');
     });
+
+    it('User mints: failure, invalid root', async () => {
+        await expect(token.connect(accounts[2]).merkleMint(0, 10, ['0x0000000000000000000000000000000000000000000000000000000000000000']))
+            .to.be.revertedWith('INVALID_ROOT()');
+    });
 });

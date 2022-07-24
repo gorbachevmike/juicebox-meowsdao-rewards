@@ -20,12 +20,16 @@ async function deployMockContractFromAddress(contractAddress: string, etherscanK
 
 describe('MEOWs DAO Token Mint Tests: Merkle Tree', () => {
     const tokenUnitPrice = ethers.utils.parseEther('0.0125');
+    const jbxProjectId = 99;
+    const jbxJbTokensEth = '0x000000000000000000000000000000000000EEEe';
 
     let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
     let token: any;
     let merkleSnapshot: { [key: string]: number };
     let merkleData: any;
+    let mockDirectory: any;
+    let ethTerminal: any;
 
     before(async () => {
         const tokenName = 'Token';
@@ -43,11 +47,10 @@ describe('MEOWs DAO Token Mint Tests: Merkle Tree', () => {
 
         const mockUniswapRouter = await deployMockContractFromAddress('0xE592427A0AEce92De3Edee1F18E0157C05861564', process.env.ETHERSCAN_KEY || '', deployer);
 
-        const jbxJbTokensEth = '0x000000000000000000000000000000000000EEEe';
-        const ethTerminal = await deployMockContract(deployer, jbETHPaymentTerminal.abi);
+        ethTerminal = await deployMockContract(deployer, jbETHPaymentTerminal.abi);
         await ethTerminal.mock.pay.returns(0);
 
-        const mockDirectory = await deployMockContract(deployer, jbDirectory.abi);
+        mockDirectory = await deployMockContract(deployer, jbDirectory.abi);
         await mockDirectory.mock.isTerminalOf.withArgs(jbxProjectId, ethTerminal.address).returns(true);
         await mockDirectory.mock.primaryTerminalOf.withArgs(jbxProjectId, jbxJbTokensEth).returns(ethTerminal.address);
 
@@ -68,15 +71,47 @@ describe('MEOWs DAO Token Mint Tests: Merkle Tree', () => {
     });
 
     before(async () => {
-        merkleSnapshot = MerkleHelper.makeSampleSnapshot(accounts.map(a => a.address));
+        merkleSnapshot = MerkleHelper.makeSampleSnapshot(accounts.slice(1).map(a => a.address));
         merkleData = MerkleHelper.buildMerkleTree(merkleSnapshot);
 
         await token.connect(deployer).setMerkleRoot(merkleData.merkleRoot);
     });
 
-    it('User mints first', async () => {
-        const merkleItem = merkleData.claims[accounts[0].address];
-        await expect(token.connect(accounts[0]).merkleMint(merkleItem.index, merkleItem.data, merkleItem.proof))
+    it('User mints', async () => {
+        const merkleItem = merkleData.claims[accounts[1].address];
+        await expect(token.connect(accounts[1]).merkleMint(merkleItem.index, merkleItem.data, merkleItem.proof))
             .to.emit(token, 'Transfer');
+    });
+
+    it('User mints: failure, invalid proof', async () => {
+        const merkleItem = merkleData.claims[accounts[1].address];
+        await expect(token.connect(accounts[0]).merkleMint(merkleItem.index, merkleItem.data, merkleItem.proof))
+            .to.be.revertedWith('INVALID_PROOF()');
+    });
+
+    it('User mints first: failure, invalid proof', async () => {
+        const merkleItem = merkleData.claims[accounts[1].address];
+        await expect(token.connect(accounts[0]).merkleMint(merkleItem.index, merkleItem.data, merkleItem.proof))
+            .to.be.revertedWith('INVALID_PROOF()');
+    });
+
+    it('User mints first: failure, claims exhausted', async () => {
+        const merkleItem = merkleData.claims[accounts[2].address];
+
+        for (let i = 0; i < Number(merkleItem.data); i++) {
+            await token.connect(accounts[2]).merkleMint(merkleItem.index, merkleItem.data, merkleItem.proof);
+        }
+
+        await expect(token.connect(accounts[2]).merkleMint(merkleItem.index, merkleItem.data, merkleItem.proof))
+            .to.be.revertedWith('CLAIMS_EXHAUSTED()');
+    });
+
+    it('User mints: payment failure', async () => {
+        await mockDirectory.mock.isTerminalOf.withArgs(jbxProjectId, ethTerminal.address).returns(false);
+        await mockDirectory.mock.primaryTerminalOf.withArgs(jbxProjectId, jbxJbTokensEth).returns(ethers.constants.AddressZero);
+        await token.connect(accounts[3])['mint()']({value: 0});
+
+        await expect(token.connect(accounts[3])['mint()']({value: tokenUnitPrice}))
+            .to.be.revertedWith('PAYMENT_FAILURE()');
     });
 });
