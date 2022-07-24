@@ -8,6 +8,7 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
+import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 
@@ -32,6 +33,9 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   error PAYMENT_FAILURE();
   error UNAPPROVED_TOKEN();
   error INVALID_MARGIN();
+  error INVALID_ROOT();
+  error INVALID_PROOF();
+  error CLAIMS_EXHAUSTED();
 
   address public constant WETH9 = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
   address public constant DAI = address(0x6B175474E89094C44Da98b954EedeAC495271d0F);
@@ -53,8 +57,11 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   bool immediateTokenLiquidation;
   uint256 tokenPriceMargin = 10_000; // in bps
 
+  mapping(address => uint256) public claimedMerkleAllowance;
+
   bool isRevealed;
   bool isPaused;
+  bytes32 public merkleRoot;
 
   //*********************************************************************//
   // -------------------------- constructor ---------------------------- //
@@ -105,7 +112,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   // ---------------------- external transactions ---------------------- //
   //*********************************************************************//
 
-  function mint() public payable nonReentrant {
+  function mint() public payable nonReentrant returns (uint256 tokenId) {
     if (totalSupply() == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
@@ -143,7 +150,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
       );
     }
 
-    uint256 tokenId = generateTokenId(msg.sender, msg.value, block.number);
+    tokenId = generateTokenId(msg.sender, msg.value, block.number);
     _beforeTokenTransfer(address(0), msg.sender, tokenId);
     _mint(msg.sender, tokenId);
   }
@@ -151,7 +158,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   /**
     @dev Moves funds to jbx project terminal w/o issuing tokens via addToBalanceOf
      */
-  function mint(IERC20 _token) public payable nonReentrant {
+  function mint(IERC20 _token) public payable nonReentrant returns (uint256 tokenId) {
     if (totalSupply() == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
@@ -219,7 +226,8 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
             msg.sender,
             0,
             false,
-            string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+            // string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+            '',
             abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
         );
       } else {
@@ -251,13 +259,43 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
             msg.sender,
             0,
             false,
-            string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
-            abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
+            // string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+            '',
+            abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString())
         );
       }
     }
 
-    uint256 tokenId = generateTokenId(msg.sender, msg.value, block.number);
+    tokenId = generateTokenId(msg.sender, msg.value, block.number);
+    _beforeTokenTransfer(address(0), msg.sender, tokenId);
+    _mint(msg.sender, tokenId);
+  }
+
+  /**
+    @notice Allows minting by anyone in the merkle root.
+    */
+  function merkleMint(
+    uint256 _index,
+    uint256 _allowance,
+    bytes32[] calldata _proof
+  ) external payable nonReentrant returns (uint256 tokenId) {
+    if (merkleRoot == 0) {
+      revert INVALID_ROOT();
+    }
+
+    bytes32 node = keccak256(abi.encodePacked(_index, msg.sender, _allowance));
+
+    if (!MerkleProof.verify(_proof, merkleRoot, node)) {
+      revert INVALID_PROOF();
+    }
+
+    if (_allowance - claimedMerkleAllowance[msg.sender] == 0) {
+        revert CLAIMS_EXHAUSTED();
+    } else {
+        ++claimedMerkleAllowance[msg.sender];
+    }
+
+    tokenId = generateTokenId(msg.sender, msg.value, block.number);
     _beforeTokenTransfer(address(0), msg.sender, tokenId);
     _mint(msg.sender, tokenId);
   }
@@ -270,7 +308,9 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     isPaused = pause;
   }
 
-  // TODO: presale
+  function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+    merkleRoot = _merkleRoot;
+  }
 
   function mintFor(address _account) public onlyOwner {
     uint256 tokenId = generateTokenId(_account, unitPrice, block.number);
