@@ -9,10 +9,9 @@ import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
 import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
+import '@rari-capital/solmate/src/tokens/ERC721.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
-
-import './libraries/ERC721Enumerable.sol';
 
 import 'hardhat/console.sol';
 
@@ -22,7 +21,7 @@ interface IWETH9 is IERC20 {
   function withdraw(uint256) external;
 }
 
-contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
+contract Token is ERC721, Ownable, ReentrancyGuard {
   using Strings for uint256;
 
   /**
@@ -101,6 +100,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   uint256 tokenPriceMargin = 10_000; // in bps
 
   mapping(address => uint256) public claimedMerkleAllowance;
+  uint256 public totalSupply;
 
   /**
     @notice Revealed flag.
@@ -148,7 +148,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint256 _mintAllowance,
     IQuoter _uniswapQuoter, // TODO: remove
     ISwapRouter _uniswapRouter // TODO: remove
-  ) ERC721Enumerable(_name, _symbol) {
+  ) ERC721(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
     jbxDirectory = _jbxDirectory;
@@ -188,7 +188,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     @dev Proceeds are forwarded to the default jbx terminal for the project id set in the constructor. Payment will fail if the terminal is not set in the jbx directory.
    */
   function mint() public payable nonReentrant returns (uint256 tokenId) {
-    if (totalSupply() == maxSupply) {
+    if (totalSupply == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
 
@@ -226,15 +226,17 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     tokenId = generateTokenId(msg.sender, msg.value, block.number);
-    _beforeTokenTransfer(address(0), msg.sender, tokenId);
     _mint(msg.sender, tokenId);
+    unchecked {
+        ++totalSupply;
+    }
   }
 
   /**
     @dev Pays into the appropriate jbx terminal for the token. The terminal may also issue tokens to the calling account.
      */
   function mint(IERC20 _token) public payable nonReentrant returns (uint256 tokenId) {
-    if (totalSupply() == maxSupply) {
+    if (totalSupply == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
 
@@ -342,8 +344,10 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     tokenId = generateTokenId(msg.sender, msg.value, block.number);
-    _beforeTokenTransfer(address(0), msg.sender, tokenId);
     _mint(msg.sender, tokenId);
+    unchecked {
+        ++totalSupply;
+      }
   }
 
   /**
@@ -371,8 +375,10 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     tokenId = generateTokenId(msg.sender, msg.value, block.number);
-    _beforeTokenTransfer(address(0), msg.sender, tokenId);
     _mint(msg.sender, tokenId);
+    unchecked {
+        ++totalSupply;
+      }
   }
 
   //*********************************************************************//
@@ -389,8 +395,10 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
 
   function mintFor(address _account) public onlyOwner {
     uint256 tokenId = generateTokenId(_account, unitPrice, block.number);
-    _beforeTokenTransfer(address(0), _account, tokenId);
     _mint(_account, tokenId);
+    unchecked {
+        ++totalSupply;
+      }
   }
 
   /**
@@ -438,8 +446,8 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     isRevealed = _reveal;
   }
 
-  function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable) returns (bool) {
-    return ERC721Enumerable.supportsInterface(interfaceId);
+  function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+    return super.supportsInterface(interfaceId);
   }
 
   // TODO: consider breaking this out
@@ -448,7 +456,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint256 _amount,
     uint256 _blockNumber
   ) private returns (uint256 tokenId) {
-    if (totalSupply() == maxSupply) {
+    if (totalSupply == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
 
