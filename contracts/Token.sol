@@ -25,16 +25,59 @@ interface IWETH9 is IERC20 {
 contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   using Strings for uint256;
 
-  error PROVENACE_REASSIGNMENT();
+  /**
+    @notice NFT provenance hash reassignment prohibited.
+   */
+  error PROVENANCE_REASSIGNMENT();
+
+  /**
+    @notice Base URI assignment along with the "revealed" flag can only be done once.
+   */
   error ALREADY_REVEALED();
+
+  /**
+    @notice User mint allowance exhausted.
+   */
   error ALLOWANCE_EXHAUSTED();
+
+  /**
+    @notice mint() function received an incorrect payment, expected payment returned as argument.
+   */
   error INCORRECT_PAYMENT(uint256);
+
+  /**
+    @notice Token supply exhausted, all tokens have been minted.
+   */
   error SUPPLY_EXHAUSTED();
+
+  /**
+    @notice Various payment failures caused by incorrect contract condiguration.
+   */
   error PAYMENT_FAILURE();
+
+  /**
+    @notice User attempted to pay for the mint using an unapproved token.
+   */
   error UNAPPROVED_TOKEN();
+
+  /**
+    @notice User attempted to pay for a mint, on a contract that retains paid token deposits rather than liquidating for Ether immediately, without providing sufficient margin on top of the NFT cost.
+   */
   error INVALID_MARGIN();
+
+  /**
+    @notice Blank Merkle root.
+   */
   error INVALID_ROOT();
+
+  /**
+    @notice Merkle proof does not match parameters.
+   */
   error INVALID_PROOF();
+
+  /**
+    @notice Merkle claims for the user exhausted, not the same as `ALLOWANCE_EXHAUSTED()`.
+   */
   error CLAIMS_EXHAUSTED();
 
   address public constant WETH9 = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -59,13 +102,40 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
 
   mapping(address => uint256) public claimedMerkleAllowance;
 
+  /**
+    @notice Revealed flag.
+
+    @dev changes the way tokenUri(uint256) works.
+   */
   bool isRevealed;
+
+  /**
+    @notice Pause minting flag
+   */
   bool isPaused;
+
+  /**
+    @notice Merkle root data.
+   */
   bytes32 public merkleRoot;
 
   //*********************************************************************//
   // -------------------------- constructor ---------------------------- //
   //*********************************************************************//
+
+  /**
+    @notice Creates the NFT contract.
+
+    @param _name Token name.
+    @param  _symbol Token symbol
+    @param  _baseUri Base URI, initially expected to point at generic, "unrevealed" metadata json.
+    @param  _contractUri OpenSea-style contract metadata URI.
+    @param  _jbxProjectId Juicebox project id that will be paid the proceeds of the sale.
+    @param  _jbxDirectory Juicebox directory to determine payment destination.
+    @param  _maxSupply Max NFT supply.
+    @param  _unitPrice Price per token expressed in Ether.
+    @param  _mintAllowance Per-user mint cap.
+   */
   constructor(
     string memory _name,
     string memory _symbol,
@@ -76,8 +146,8 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint256 _maxSupply,
     uint256 _unitPrice,
     uint256 _mintAllowance,
-    IQuoter _uniswapQuoter,
-    ISwapRouter _uniswapRouter
+    IQuoter _uniswapQuoter, // TODO: remove
+    ISwapRouter _uniswapRouter // TODO: remove
   ) ERC721Enumerable(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
@@ -112,6 +182,11 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   // ---------------------- external transactions ---------------------- //
   //*********************************************************************//
 
+  /**
+    @notice Mints a token to the calling account. Must be paid in Ether if price is non-zero.
+
+    @dev Proceeds are forwarded to the default jbx terminal for the project id set in the constructor. Payment will fail if the terminal is not set in the jbx directory.
+   */
   function mint() public payable nonReentrant returns (uint256 tokenId) {
     if (totalSupply() == maxSupply) {
       revert SUPPLY_EXHAUSTED();
@@ -132,7 +207,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     if (msg.value > 0) {
-      // NOTE: move funds to jbx project w/o issuing tokens      
+      // NOTE: move funds to jbx project
       IJBPaymentTerminal terminal = jbxDirectory.primaryTerminalOf(jbxProjectId, JBTokens.ETH);
       if (address(terminal) == address(0)) {
         revert PAYMENT_FAILURE();
@@ -156,7 +231,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
   }
 
   /**
-    @dev Moves funds to jbx project terminal w/o issuing tokens via addToBalanceOf
+    @dev Pays into the appropriate jbx terminal for the token. The terminal may also issue tokens to the calling account.
      */
   function mint(IERC20 _token) public payable nonReentrant returns (uint256 tokenId) {
     if (totalSupply() == maxSupply) {
@@ -325,7 +400,7 @@ contract Token is ERC721Enumerable, Ownable, ReentrancyGuard {
    */
   function setProvenanceHash(string memory _provenanceHash) public onlyOwner {
     if (bytes(provenanceHash).length == 0) {
-      revert PROVENACE_REASSIGNMENT();
+      revert PROVENANCE_REASSIGNMENT();
     }
     provenanceHash = _provenanceHash;
   }
