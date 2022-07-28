@@ -23,6 +23,9 @@ import '@openzeppelin/contracts/utils/Strings.sol';
 // stack[10] = uint64(uint8(_traits >> 76) & 1); // Signature 1
 // stack[11] = uint64(uint8(_traits >> 77) & 1); // Juicebox 1
 
+/**
+  @notice MEOWs DAO NFT helper functions for managing IPFS image assets.
+ */
 contract MeowGatewayUtil {
     uint8[12] private nakedOffsets = [0, 8, 14, 18, 22, 30, 34, 60, 66, 72, 76, 77];
     uint8[12] private nakedCardinality = [165, 25, 2, 2, 36, 19, 2, 31, 37, 14, 1, 1];
@@ -178,6 +181,10 @@ contract MeowGatewayUtil {
         abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> shirtOffsets[i]) & shirtMask[i]))));
       ++i;
     }
+  }
+
+  function generateSeed(address _account, uint256 _blockNumber, uint256 _other) internal pure returns (uint256 seed) {
+    seed = uint256(keccak256(abi.encodePacked(_account, _blockNumber, _other)));
   }
 
   /**
