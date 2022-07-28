@@ -9,7 +9,7 @@
         {
             "files": "*.sol",
             "options": {
-                "printWidth": 160,
+                "printWidth": 100,
                 "tabWidth": 2,
                 "useTabs": false,
                 "bracketSpacing": false,

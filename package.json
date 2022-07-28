@@ -30,6 +30,7 @@
     "hardhat": "^2.9.9",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-gas-reporter": "^1.0.8",
+    "nft.storage": "^6.4.1",
     "node-fetch": "2.6.6",
     "pako": "^2.0.4",
     "prettier": "^2.7.1",
