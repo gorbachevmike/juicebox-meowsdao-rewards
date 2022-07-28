@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
+import '@openzeppelin/contracts/utils/Base64.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
 
 // stack[0] = uint64(uint8(_traits)); // Background 165
@@ -27,16 +28,15 @@ import '@openzeppelin/contracts/utils/Strings.sol';
   @notice MEOWs DAO NFT helper functions for managing IPFS image assets.
  */
 contract MeowGatewayUtil {
-    uint8[12] private nakedOffsets = [0, 8, 14, 18, 22, 30, 34, 60, 66, 72, 76, 77];
-    uint8[12] private nakedCardinality = [165, 25, 2, 2, 36, 19, 2, 31, 37, 14, 1, 1];
-    uint8[12] private nakedMask = [255, 63, 15, 15, 63, 15, 15, 63, 63, 15, 1, 1];
-    uint8[12] private tShirtOffsets = [0, 8, 14, 18, 22, 30, 50, 54, 60, 66, 76, 77];
-    uint8[12] private tShirtCardinality = [165, 25, 2, 2, 37, 19, 13, 34, 31, 37, 1, 1];
-    uint8[12] private tShirtMask = [255, 63, 15, 15, 63, 15, 15, 63, 63, 63, 1, 1];
-    uint8[13] private shirtOffsets = [0, 8, 14, 18, 22, 30, 38, 42, 46, 60, 66, 76, 77];
-    uint8[13] private shirtCardinality = [165, 25, 2, 2, 36, 19, 11, 10, 7, 31, 37, 1, 1];
-    uint8[13] private shirtMask = [255, 63, 15, 15, 63, 15, 15, 15, 15, 63, 63, 1, 1];
-
+  uint8[12] private nakedOffsets = [0, 8, 14, 18, 22, 30, 34, 60, 66, 72, 76, 77];
+  uint8[12] private nakedCardinality = [165, 25, 2, 2, 36, 19, 2, 31, 37, 14, 1, 1];
+  uint8[12] private nakedMask = [255, 63, 15, 15, 63, 15, 15, 63, 63, 15, 1, 1];
+  uint8[12] private tShirtOffsets = [0, 8, 14, 18, 22, 30, 50, 54, 60, 66, 76, 77];
+  uint8[12] private tShirtCardinality = [165, 25, 2, 2, 37, 19, 13, 34, 31, 37, 1, 1];
+  uint8[12] private tShirtMask = [255, 63, 15, 15, 63, 15, 15, 63, 63, 63, 1, 1];
+  uint8[13] private shirtOffsets = [0, 8, 14, 18, 22, 30, 38, 42, 46, 60, 66, 76, 77];
+  uint8[13] private shirtCardinality = [165, 25, 2, 2, 36, 19, 11, 10, 7, 31, 37, 1, 1];
+  uint8[13] private shirtMask = [255, 63, 15, 15, 63, 15, 15, 15, 15, 63, 63, 1, 1];
 
   function validateTraits(uint256 _traits) public view returns (bool) {
     uint8 population = uint8(_traits >> 252) & 15;
@@ -129,8 +129,8 @@ contract MeowGatewayUtil {
     @param _traits Encoded traits set to compose.
    */
   function getImageStack(
-    string calldata _ipfsGateway,
-    string calldata _ipfsRoot,
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
     uint256 _traits
   ) public view returns (string memory image) {
     uint8 population = uint8(_traits >> 252) & 15;
@@ -145,46 +145,79 @@ contract MeowGatewayUtil {
   }
 
   function getNakedStack(
-    string calldata _ipfsGateway,
-    string calldata _ipfsRoot,
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
     uint256 _traits
   ) internal view returns (string memory image) {
     image = __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> nakedOffsets[0]) & nakedMask[0]));
     for (uint8 i = 1; i < 12; ) {
-      image = string(
-        abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> nakedOffsets[i]) & nakedMask[i]))));
+      image = string(abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> nakedOffsets[i]) & nakedMask[i]))));
       ++i;
     }
   }
 
   function getTShirtStack(
-    string calldata _ipfsGateway,
-    string calldata _ipfsRoot,
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
     uint256 _traits
   ) internal view returns (string memory image) {
     image = __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> tShirtOffsets[0]) & tShirtMask[0]));
     for (uint8 i = 1; i < 12; ) {
-      image = string(
-        abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> tShirtOffsets[i]) & tShirtMask[i]))));
+      image = string(abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> tShirtOffsets[i]) & tShirtMask[i]))));
       ++i;
     }
   }
 
   function getShirtStack(
-    string calldata _ipfsGateway,
-    string calldata _ipfsRoot,
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
     uint256 _traits
   ) internal view returns (string memory image) {
     image = __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> shirtOffsets[0]) & shirtMask[0]));
     for (uint8 i = 1; i < 13; ) {
-      image = string(
-        abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> shirtOffsets[i]) & shirtMask[i]))));
+      image = string(abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> shirtOffsets[i]) & shirtMask[i]))));
       ++i;
     }
   }
 
-  function generateSeed(address _account, uint256 _blockNumber, uint256 _other) internal pure returns (uint256 seed) {
+  function generateSeed(
+    address _account,
+    uint256 _blockNumber,
+    uint256 _other
+  ) internal pure returns (uint256 seed) {
     seed = uint256(keccak256(abi.encodePacked(_account, _blockNumber, _other)));
+  }
+
+  function dataUri(
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
+    uint256 _traits,
+    string memory _name,
+    uint256 _tokenId
+  ) internal view returns (string memory) {
+      string memory image = string(
+        abi.encodePacked(
+          '<svg id="token" width="300" height="300" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="bannyPlaceholder">',
+          getImageStack(_ipfsGateway, _ipfsRoot, _traits),
+          '</g></svg>'
+        )
+      );
+
+      string memory json = Base64.encode(
+      abi.encodePacked(
+        '{"name": "',
+        _name,
+        ' No.',
+        Strings.toString(_tokenId),
+        '", "description": "Fully on-chain NFT", "image": "data:image/svg+xml;base64,',
+        image,
+        '", "attributes":',
+        '{}' // TODO: metadata
+        '}'
+      )
+    );
+
+    return string(abi.encodePacked('data:application/json;base64,', json));
   }
 
   /**
@@ -194,7 +227,11 @@ contract MeowGatewayUtil {
     @param _ipfsRoot IPFS path, must contain tailing slash.
     @param _imageIndex Image index that will be converted to string and used as a filename.
     */
-  function __imageTag(string calldata _ipfsGateway, string calldata _ipfsRoot, uint256 _imageIndex) private pure returns (string memory tag) {
+  function __imageTag(
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
+    uint256 _imageIndex
+  ) private pure returns (string memory tag) {
     tag = string(
       abi.encodePacked(
         '<image x="50%" y="50%" width="1000" href="',
