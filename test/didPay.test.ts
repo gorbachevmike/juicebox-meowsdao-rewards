@@ -24,6 +24,7 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
 
     await mockJbDirectory.mock.isTerminalOf.withArgs(PROJECT_ID, projectTerminal.address).returns(true);
     await mockJbDirectory.mock.isTerminalOf.withArgs(PROJECT_ID, beneficiary.address).returns(false);
+    // 
 
     const jbTierRewardTokenFactory = await ethers.getContractFactory('JBTierRewardToken', deployer);
     jbTierRewardToken = await jbTierRewardTokenFactory
@@ -33,9 +34,9 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
         mockJbDirectory.address,
         'JBX Delegate Banana',
         'BAJAJA',
-        ethers.constants.AddressZero, // tokenUriResolver
         'ipfs://',
-        'ipfs://', // baseUri
+        'https://ipfs.io/ipfs/',
+        'bafybeid25r5s6326gihtro262piql4z7ooei6vajy3c6x6kz33755lz6qi/',
         deployer.address,
         [{
             contributionFloor: ethers.utils.parseEther('1'),
@@ -78,8 +79,10 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
       preferClaimedTokens: true,
       memo: '',
       metadata: '0x42'
-    })).to.emit(jbTierRewardToken, 'Transfer');
+    })).to.emit(jbTierRewardToken, 'Transfer').withArgs(ethers.constants.AddressZero, beneficiary.address, 257);
 
     expect(await jbTierRewardToken.balanceOf(beneficiary.address)).to.equal(1);
+
+    console.log(await jbTierRewardToken.tokenURI(257));
   });
 });
