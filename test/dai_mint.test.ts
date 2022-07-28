@@ -30,7 +30,6 @@ async function getNextContractAddress(deployer: SignerWithAddress) {
    return getContractAddress({ from: deployer.address, nonce: await deployer.getTransactionCount() });
 }
 
-
 describe('MEOWs DAO Token Mint Tests: DAI', () => {
     const tokenUnitPrice = ethers.utils.parseEther('0.0125');
 
