@@ -7,9 +7,9 @@ import '@openzeppelin/contracts/utils/Strings.sol';
 // stack[0] = uint64(uint8(_traits)); // Background 165
 // stack[1] = uint64(uint8(_traits >> 8) & 63); // Fur 25
 // stack[2] = uint64(uint8(_traits >> 14) & 15); // Ears 2
-// stack[3] = uint64(uint8(_traits >> 18) & 15); // Brows 2
+// stack[3] = uint64(uint8(_traits >> 18) & 15); // Brows 3
 // stack[4] = uint64(uint8(_traits >> 22) & 63); // Eyes 36
-// stack[5] = uint64(uint8(_traits >> 30) & 15); // Nose 19
+// stack[5] = uint64(uint8(_traits >> 30) & 15); // Nose 18
 
 // stack[6] = uint64(uint8(_traits >> 34) & 15); // Nipples 2 // naked
 // stack[6] = uint64(uint8(_traits >> 38) & 15); // Shirt 11 // shirt
@@ -28,14 +28,16 @@ import '@openzeppelin/contracts/utils/Strings.sol';
   @notice MEOWs DAO NFT helper functions for managing IPFS image assets.
  */
 contract MeowGatewayUtil {
-  uint8[12] private nakedOffsets = [0, 8, 14, 18, 22, 30, 34, 60, 66, 72, 76, 77];
-  uint8[12] private nakedCardinality = [165, 25, 2, 2, 36, 19, 2, 31, 37, 14, 1, 1];
+  uint8[12] private nakedOffsets = [0, 8, 14, 18, 22, 28, 34, 60, 66, 72, 76, 77];
+  uint8[12] private nakedCardinality = [165, 25, 2, 3, 36, 18, 2, 31, 37, 14, 1, 1];
   uint8[12] private nakedMask = [255, 63, 15, 15, 63, 15, 15, 63, 63, 15, 1, 1];
-  uint8[12] private tShirtOffsets = [0, 8, 14, 18, 22, 30, 50, 54, 60, 66, 76, 77];
-  uint8[12] private tShirtCardinality = [165, 25, 2, 2, 37, 19, 13, 34, 31, 37, 1, 1];
+
+  uint8[12] private tShirtOffsets = [0, 8, 14, 18, 22, 28, 50, 54, 60, 66, 76, 77];
+  uint8[12] private tShirtCardinality = [165, 25, 2, 3, 36, 18, 13, 34, 31, 37, 1, 1];
   uint8[12] private tShirtMask = [255, 63, 15, 15, 63, 15, 15, 63, 63, 63, 1, 1];
-  uint8[13] private shirtOffsets = [0, 8, 14, 18, 22, 30, 38, 42, 46, 60, 66, 76, 77];
-  uint8[13] private shirtCardinality = [165, 25, 2, 2, 36, 19, 11, 10, 7, 31, 37, 1, 1];
+
+  uint8[13] private shirtOffsets = [0, 8, 14, 18, 22, 28, 38, 42, 46, 60, 66, 76, 77];
+  uint8[13] private shirtCardinality = [165, 25, 2, 3, 36, 18, 11, 10, 7, 31, 37, 1, 1];
   uint8[13] private shirtMask = [255, 63, 15, 15, 63, 15, 15, 15, 15, 63, 63, 1, 1];
 
   function validateTraits(uint256 _traits) public view returns (bool) {
@@ -98,7 +100,7 @@ contract MeowGatewayUtil {
   function generateNakedTraits(uint256 _seed) private view returns (uint256 traits) {
     traits = uint256(uint8(_seed) % nakedCardinality[0]);
     for (uint8 i = 1; i != 12; ) {
-      traits |= uint256((uint8(_seed >> nakedOffsets[i]) % nakedCardinality[i])) << nakedOffsets[i];
+      traits |= uint256((uint8(_seed >> nakedOffsets[i]) % nakedCardinality[i]) + 1) << nakedOffsets[i];
       ++i;
     }
   }
@@ -106,7 +108,7 @@ contract MeowGatewayUtil {
   function generateTShirtTraits(uint256 _seed) private view returns (uint256 traits) {
     traits = uint256(uint8(_seed) % tShirtCardinality[0]);
     for (uint8 i = 1; i != 12; ) {
-      traits |= uint256((uint8(_seed >> tShirtOffsets[i]) % tShirtCardinality[i])) << tShirtOffsets[i];
+      traits |= uint256((uint8(_seed >> tShirtOffsets[i]) % tShirtCardinality[i]) + 1) << tShirtOffsets[i];
       ++i;
     }
   }
@@ -114,7 +116,7 @@ contract MeowGatewayUtil {
   function generateShirtTraits(uint256 _seed) private view returns (uint256 traits) {
     traits = uint256(uint8(_seed) % shirtCardinality[0]);
     for (uint8 i = 1; i != 13; ) {
-      traits |= uint256((uint8(_seed >> shirtOffsets[i]) % shirtCardinality[i])) << shirtOffsets[i];
+      traits |= uint256((uint8(_seed >> shirtOffsets[i]) % shirtCardinality[i]) + 1) << shirtOffsets[i];
       ++i;
     }
   }
@@ -149,9 +151,9 @@ contract MeowGatewayUtil {
     string memory _ipfsRoot,
     uint256 _traits
   ) internal view returns (string memory image) {
-    image = __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> nakedOffsets[0]) & nakedMask[0]));
+    image = __imageTag(_ipfsGateway, _ipfsRoot, uint256(uint8(_traits >> nakedOffsets[0]) & nakedMask[0]));
     for (uint8 i = 1; i < 12; ) {
-      image = string(abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint64(uint8(_traits >> nakedOffsets[i]) & nakedMask[i]))));
+      image = string(abi.encodePacked(image, __imageTag(_ipfsGateway, _ipfsRoot, uint256(uint8(_traits >> nakedOffsets[i]) & nakedMask[i]) << nakedOffsets[i])));
       ++i;
     }
   }
@@ -195,13 +197,11 @@ contract MeowGatewayUtil {
     string memory _name,
     uint256 _tokenId
   ) internal view returns (string memory) {
-      string memory image = string(
-        abi.encodePacked(
-          '<svg id="token" width="300" height="300" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="bannyPlaceholder">',
-          getImageStack(_ipfsGateway, _ipfsRoot, _traits),
-          '</g></svg>'
-        )
-      );
+      string memory image = Base64.encode(abi.encodePacked(
+        '<svg id="token" width="300" height="300" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="bannyPlaceholder">',
+        getImageStack(_ipfsGateway, _ipfsRoot, _traits),
+        '</g></svg>'
+      ));
 
       string memory json = Base64.encode(
       abi.encodePacked(
