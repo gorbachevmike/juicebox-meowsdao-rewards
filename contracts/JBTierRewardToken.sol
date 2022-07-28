@@ -360,7 +360,6 @@ contract JBTierRewardToken is
     @param _directory The directory of terminals and controllers for projects.
     @param _name The name of the token.
     @param _symbol The symbol that the token should be represented by.
-    @param _tokenUriResolver A contract responsible for resolving the token URI for each token ID.
     @param _contractUri A URI where contract metadata can be found. 
     @param _ipfsGateway HTTP IPFS gateway.
     @param _ipfsRoot IPFS root for assets.
@@ -374,7 +373,6 @@ contract JBTierRewardToken is
     IJBDirectory _directory,
     string memory _name,
     string memory _symbol,
-    IJBTokenUriResolver _tokenUriResolver,
     string memory _contractUri,
     string memory _ipfsGateway,
     string memory _ipfsRoot,
@@ -388,7 +386,7 @@ contract JBTierRewardToken is
       _directory,
       _name,
       _symbol,
-      _tokenUriResolver,
+      IJBTokenUriResolver(address(0)),
       _contractUri,
       _owner
     )
