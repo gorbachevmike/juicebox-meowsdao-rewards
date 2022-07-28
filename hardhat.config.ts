@@ -33,7 +33,7 @@ const config: HardhatUserConfig = {
         settings: {
             optimizer: {
                 enabled: true,
-                runs: 800,
+                runs: 400,
             },
         },
     },
@@ -54,7 +54,6 @@ const config: HardhatUserConfig = {
         disambiguatePaths: false,
         runOnCompile: true,
         strict: false,
-        only: ['Token$'],
     },
     gasReporter: {
         enabled: process.env.REPORT_GAS !== undefined,
