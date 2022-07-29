@@ -19,7 +19,7 @@ async function listAssets(location: string) {
             const ccontents = fs.readdirSync(path.join(location, c));
             for (const cc of ccontents) {
                 if (fs.lstatSync(path.join(location, c, cc)).isFile() && path.parse(cc).ext === '.png') {
-                    traits[c].push(`${path.parse(cc).name}.${path.parse(cc).ext}`);
+                    traits[c].push(`${path.parse(cc).name}${path.parse(cc).ext}`);
                 }
             }
         }
@@ -56,11 +56,13 @@ async function renameAssets(source: string, destination: string) {
 
             const imageSource = path.resolve(source, group, `${item}`);
             const imageDestination = path.resolve(destination, `${fileName}`);
-            // fs.copyFileSync(imageSource, imageDestination, fs.constants.COPYFILE_EXCL);
+            fs.copyFileSync(imageSource, imageDestination, fs.constants.COPYFILE_EXCL);
             console.log(`${group}/${item}->${fileName} (${filenameIndex}, ${offset})`);
         }
 
         const width = Math.ceil(Math.log2(layerOptions.length));
+
+        details[group] = { cardinality: layerOptions.length, offset};
 
         let mask = 1;
         if (width == 0) {
@@ -82,7 +84,7 @@ async function renameAssets(source: string, destination: string) {
             mask = 2**16 - 1;
         }
 
-        details[group] = { cardinality: layerOptions.length, offset, mask};
+        details[group].mask = mask;
     }
 
     console.log(JSON.stringify(details, undefined, 2));
