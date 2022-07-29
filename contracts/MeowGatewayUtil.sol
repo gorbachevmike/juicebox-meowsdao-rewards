@@ -369,7 +369,7 @@ library MeowGatewayUtil {
   ) public view returns (string memory) {
     string memory image = Base64.encode(
       abi.encodePacked(
-        '<svg id="token" width="300" height="300" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="bannyPlaceholder">',
+        '<svg id="token" width="1000" height="1000" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="bannyPlaceholder">',
         getImageStack(_ipfsGateway, _ipfsRoot, _traits),
         '</g></svg>'
       )
