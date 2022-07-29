@@ -8,22 +8,99 @@ import '@openzeppelin/contracts/utils/Strings.sol';
   @notice MEOWs DAO NFT helper functions for managing IPFS image assets.
  */
 library MeowGatewayUtil {
-  function nakedOffsets() private view returns (uint8[12] memory) { return [0, 8, 14, 18, 22, 28, 34, 60, 66, 72, 76, 77]; }
-  function nakedCardinality() private pure returns (uint8[12] memory) { return [165, 25, 2, 3, 36, 18, 2, 31, 37, 14, 1, 1]; }
-  function nakedMask() private pure returns (uint8[12] memory) { return [255, 63, 15, 15, 63, 63, 15, 63, 63, 15, 1, 1]; }
+  // Trait,Cardinality,Offset,Mask
 
-  function tShirtOffsets() private pure returns (uint8[12] memory) { return [0, 8, 14, 18, 22, 28, 50, 54, 60, 66, 76, 77]; }
-  function tShirtCardinality() private pure returns (uint8[12] memory) { return [165, 25, 2, 3, 36, 18, 13, 34, 31, 37, 1, 1]; }
-  function tShirtMask() private pure returns (uint8[12] memory) { return [255, 63, 15, 15, 63, 63, 15, 63, 63, 63, 1, 1]; }
+  // Background,86,0,127
+  // Fur,25,8,63
+  // Ears 2 14 15
+  // Brows 3 18, 15
+  // Eyes 32,22,63
+  // Nose 18,28,31
 
-  function shirtOffsets() private pure returns (uint8[13] memory) { return [0, 8, 14, 18, 22, 28, 38, 42, 46, 60, 66, 76, 77]; }
-  function shirtCardinality() private pure returns (uint8[13] memory) { return [165, 25, 2, 3, 36, 18, 11, 10, 7, 31, 37, 1, 1]; }
-  function shirtMask() private pure returns (uint8[13] memory) { return [255, 63, 15, 15, 63, 63, 15, 15, 15, 63, 63, 1, 1]; }
+  // Collar,14,34,15 // naked
+  // Nipples 2,38,15 // naked
+  // Shirt 10,42,15 // shirt
+  // Tie 10,46,15 // shirt
+  // Blazer 6,50,15 // shirt
+  // T-shirt 12,54,15 // tshirt
+  // Pattern 33,58,63 // tshirt
+
+  // Headwear,29,64,31
+  // Special Headwear,19,70,31
+
+  // Glasses 35,76,63
+  // Signature 1,82,1
+  // Juicebox 1,83,1
+
+  function specialNakedOffsets() private pure returns (uint8[12] memory) {
+    return [0, 8, 14, 18, 22, 28, 34, 38, 70, 76, 82, 83];
+  }
+
+  function specialNakedCardinality() private pure returns (uint8[12] memory) {
+    return [86, 25, 2, 3, 32, 18, 14, 2, 19, 35, 1, 1];
+  }
+
+  function specialNakedMask() private pure returns (uint8[12] memory) {
+    return [127, 63, 15, 15, 63, 15, 15, 31, 31, 63, 1, 1];
+  }
+
+  function nakedOffsets() private pure returns (uint8[12] memory) {
+    return [0, 8, 14, 18, 22, 28, 34, 38, 64, 76, 82, 83];
+  }
+
+  function nakedCardinality() private pure returns (uint8[12] memory) {
+    return [86, 25, 2, 3, 32, 18, 14, 2, 29, 35, 1, 1];
+  }
+
+  function nakedMask() private pure returns (uint8[12] memory) {
+    return [127, 63, 15, 15, 63, 15, 15, 31, 31, 63, 1, 1];
+  }
+
+  function tShirtOffsets() private pure returns (uint8[12] memory) {
+    return [0, 8, 14, 18, 22, 28, 54, 58, 64, 76, 82, 83];
+  }
+
+  function tShirtCardinality() private pure returns (uint8[12] memory) {
+    return [86, 25, 2, 3, 32, 18, 12, 33, 29, 35, 1, 1];
+  }
+
+  function tShirtMask() private pure returns (uint8[12] memory) {
+    return [127, 63, 15, 15, 63, 31, 15, 31, 31, 63, 1, 1];
+  }
+
+  function shirtOffsets() private pure returns (uint8[13] memory) {
+    return [0, 8, 14, 18, 22, 28, 42, 46, 50, 64, 76, 82, 83];
+  }
+
+  function shirtCardinality() private pure returns (uint8[13] memory) {
+    return [86, 25, 2, 3, 32, 18, 10, 10, 6, 29, 35, 1, 1];
+  }
+
+  function shirtMask() private pure returns (uint8[13] memory) {
+    return [127, 63, 15, 15, 63, 31, 15, 15, 15, 31, 63, 1, 1];
+  }
 
   function validateTraits(uint256 _traits) public view returns (bool) {
-    uint8 population = uint8(_traits >> 252) & 15;
+    uint8 population = uint8(_traits >> 252);
 
-    if (population == 0) {
+    if (population == 1) {
+      for (uint8 i = 0; i != 13; ) {
+        if (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i] > shirtCardinality()[i]) {
+          return false;
+        }
+        ++i;
+      }
+
+      return true;
+    } else if (population == 2) {
+      for (uint8 i = 0; i != 12; ) {
+        if (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i] > tShirtCardinality()[i]) {
+          return false;
+        }
+        ++i;
+      }
+      return true;
+    } else if (population == 3) {
       for (uint8 i = 0; i != 12; ) {
         if (uint8(_traits >> nakedOffsets()[i]) & nakedMask()[i] > nakedCardinality()[i]) {
           return false;
@@ -32,17 +109,12 @@ library MeowGatewayUtil {
       }
 
       return true;
-    } else if (population == 1) {
+    } else if (population == 4) {
       for (uint8 i = 0; i != 12; ) {
-        if (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i] > tShirtCardinality()[i]) {
-          return false;
-        }
-        ++i;
-      }
-      return true;
-    } else {
-      for (uint8 i = 0; i != 13; ) {
-        if (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i] > shirtCardinality()[i]) {
+        if (
+          uint8(_traits >> specialNakedOffsets()[i]) & specialNakedMask()[i] >
+          specialNakedCardinality()[i]
+        ) {
           return false;
         }
         ++i;
@@ -53,25 +125,9 @@ library MeowGatewayUtil {
   }
 
   function generateTraits(uint256 _seed) public view returns (uint256 traits) {
-    uint8 population = uint8(_seed >> 252) & 15;
+    uint8 population = uint8(_seed >> 252);
 
-    if (population == 0) {
-      traits = uint256(uint8(_seed) % nakedCardinality()[0]);
-      for (uint8 i = 1; i != 12; ) {
-        traits |=
-          uint256((uint8(_seed >> nakedOffsets()[i]) % nakedCardinality()[i]) + 1) <<
-          nakedOffsets()[i];
-        ++i;
-      }
-    } else if (population == 1) {
-      traits = uint256(uint8(_seed) % tShirtCardinality()[0]);
-      for (uint8 i = 1; i != 12; ) {
-        traits |=
-          uint256((uint8(_seed >> tShirtOffsets()[i]) % tShirtCardinality()[i]) + 1) <<
-          tShirtOffsets()[i];
-        ++i;
-      }
-    } else {
+    if (population == 1) {
       traits = uint256(uint8(_seed) % shirtCardinality()[0]);
       for (uint8 i = 1; i != 13; ) {
         traits |=
@@ -79,15 +135,66 @@ library MeowGatewayUtil {
           shirtOffsets()[i];
         ++i;
       }
+    } else if (population == 2) {
+      traits = uint256(uint8(_seed) % tShirtCardinality()[0]);
+      for (uint8 i = 1; i != 12; ) {
+        traits |=
+          uint256((uint8(_seed >> tShirtOffsets()[i]) % tShirtCardinality()[i]) + 1) <<
+          tShirtOffsets()[i];
+        ++i;
+      }
+    } else if (population == 3) {
+      traits = uint256(uint8(_seed) % nakedCardinality()[0]);
+      for (uint8 i = 1; i != 12; ) {
+        traits |=
+          uint256((uint8(_seed >> nakedOffsets()[i]) % nakedCardinality()[i]) + 1) <<
+          nakedOffsets()[i];
+        ++i;
+      }
+    } else if (population == 4) {
+      traits = uint256(uint8(_seed) % specialNakedCardinality()[0]);
+      for (uint8 i = 1; i != 12; ) {
+        traits |=
+          uint256((uint8(_seed >> specialNakedOffsets()[i]) % specialNakedCardinality()[i]) + 1) <<
+          specialNakedOffsets()[i];
+        ++i;
+      }
     }
+
+    traits |= uint256(population) << 252;
   }
 
   function listTraits(uint256 _traits) public view returns (string memory names) {
-    uint8 population = uint8(_traits >> 252) & 15;
+    uint8 population = uint8(_traits >> 252);
 
     string memory group;
     string memory name;
-    if (population == 0) {
+    if (population == 1) {
+      (group, name) = nameForTraits(0, (uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0]) - 1);
+      names = string(abi.encodePacked('"', group, '":"', name, '"'));
+      for (uint8 i = 1; i != 13; ) {
+        (group, name) = nameForTraits(
+          shirtOffsets()[i],
+          (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i]) - 1 // NOTE trait ids are not 0-based
+        );
+        names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
+        ++i;
+      }
+    } else if (population == 2) {
+      (group, name) = nameForTraits(
+        0,
+        (uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0]) - 1
+      );
+      names = string(abi.encodePacked('"', group, '":"', name, '"'));
+      for (uint8 i = 1; i != 12; ) {
+        (group, name) = nameForTraits(
+          tShirtOffsets()[i],
+          (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i]) - 1 // NOTE trait ids are not 0-based
+        );
+        names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
+        ++i;
+      }
+    } else if (population == 3) {
       (group, name) = nameForTraits(0, (uint8(_traits >> nakedOffsets()[0]) & nakedMask()[0]) - 1);
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
 
@@ -99,24 +206,17 @@ library MeowGatewayUtil {
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
       }
-    } else if (population == 1) {
-      (group, name) = nameForTraits(0, (uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0]) - 1);
+    } else if (population == 4) {
+      (group, name) = nameForTraits(
+        0,
+        (uint8(_traits >> specialNakedOffsets()[0]) & specialNakedMask()[0]) - 1
+      );
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
+
       for (uint8 i = 1; i != 12; ) {
         (group, name) = nameForTraits(
-          tShirtOffsets()[i],
-          (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i]) - 1 // NOTE trait ids are not 0-based
-        );
-        names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
-        ++i;
-      }
-    } else {
-      (group, name) = nameForTraits(0, (uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0]) - 1);
-      names = string(abi.encodePacked('"', group, '":"', name, '"'));
-      for (uint8 i = 1; i != 13; ) {
-        (group, name) = nameForTraits(
-          shirtOffsets()[i],
-          (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i]) - 1 // NOTE trait ids are not 0-based
+          specialNakedOffsets()[i],
+          (uint8(_traits >> specialNakedOffsets()[i]) & specialNakedMask()[i]) - 1 // NOTE trait ids are not 0-based
         );
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
@@ -138,14 +238,42 @@ library MeowGatewayUtil {
     string memory _ipfsRoot,
     uint256 _traits
   ) public view returns (string memory image) {
-    uint8 population = uint8(_traits >> 252) & 15;
+    uint8 population = uint8(_traits >> 252);
 
-    if (population == 0) {
-      image = getNakedStack(_ipfsGateway, _ipfsRoot, _traits);
-    } else if (population == 1) {
-      image = getTShirtStack(_ipfsGateway, _ipfsRoot, _traits);
-    } else {
+    if (population == 1) {
       image = getShirtStack(_ipfsGateway, _ipfsRoot, _traits);
+    } else if (population == 2) {
+      image = getTShirtStack(_ipfsGateway, _ipfsRoot, _traits);
+    } else if (population == 3) {
+      image = getNakedStack(_ipfsGateway, _ipfsRoot, _traits);
+    } else if (population == 4) {
+      image = getSpecialNakedStack(_ipfsGateway, _ipfsRoot, _traits);
+    }
+  }
+
+  function getSpecialNakedStack(
+    string memory _ipfsGateway,
+    string memory _ipfsRoot,
+    uint256 _traits
+  ) private view returns (string memory image) {
+    image = __imageTag(
+      _ipfsGateway,
+      _ipfsRoot,
+      uint256(uint8(_traits >> specialNakedOffsets()[0]) & specialNakedMask()[0])
+    );
+    for (uint8 i = 1; i < 12; ) {
+      image = string(
+        abi.encodePacked(
+          image,
+          __imageTag(
+            _ipfsGateway,
+            _ipfsRoot,
+            uint256(uint8(_traits >> specialNakedOffsets()[i]) & specialNakedMask()[i]) <<
+              specialNakedOffsets()[i]
+          )
+        )
+      );
+      ++i;
     }
   }
 
@@ -182,7 +310,7 @@ library MeowGatewayUtil {
     image = __imageTag(
       _ipfsGateway,
       _ipfsRoot,
-      uint64(uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0])
+      uint256(uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0])
     );
     for (uint8 i = 1; i < 12; ) {
       image = string(
@@ -191,7 +319,7 @@ library MeowGatewayUtil {
           __imageTag(
             _ipfsGateway,
             _ipfsRoot,
-            uint64(uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i])
+            uint256(uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i]) << tShirtOffsets()[i]
           )
         )
       );
@@ -207,7 +335,7 @@ library MeowGatewayUtil {
     image = __imageTag(
       _ipfsGateway,
       _ipfsRoot,
-      uint64(uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0])
+      uint256(uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0])
     );
     for (uint8 i = 1; i < 13; ) {
       image = string(
@@ -216,7 +344,7 @@ library MeowGatewayUtil {
           __imageTag(
             _ipfsGateway,
             _ipfsRoot,
-            uint64(uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i])
+            uint256(uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i]) << shirtOffsets()[i]
           )
         )
       );
@@ -228,7 +356,7 @@ library MeowGatewayUtil {
     address _account,
     uint256 _blockNumber,
     uint256 _other
-  ) public pure returns (uint256 seed) {
+  ) public view returns (uint256 seed) {
     seed = uint256(keccak256(abi.encodePacked(_account, _blockNumber, _other)));
   }
 
@@ -253,7 +381,7 @@ library MeowGatewayUtil {
         _name,
         ' No.',
         Strings.toString(_tokenId),
-        '", "description": "Fully on-chain NFT", "image": "data:image/svg+xml;base64,',
+        '", "description": "An on-chain NFT", "image": "data:image/svg+xml;base64,',
         image,
         '", "attributes": {',
         listTraits(_traits),
@@ -275,7 +403,7 @@ library MeowGatewayUtil {
     string memory _ipfsGateway,
     string memory _ipfsRoot,
     uint256 _imageIndex
-  ) private pure returns (string memory tag) {
+  ) private view returns (string memory tag) {
     tag = string(
       abi.encodePacked(
         '<image x="50%" y="50%" width="1000" href="',
@@ -289,7 +417,7 @@ library MeowGatewayUtil {
 
   function nameForTraits(uint8 _offset, uint8 _index)
     private
-    pure
+    view
     returns (string memory group, string memory trait)
   {
     if (_offset == 0) {
@@ -311,36 +439,39 @@ library MeowGatewayUtil {
       group = 'Nose';
       trait = nameForNoseTrait(_index);
     } else if (_offset == 34) {
-      group = 'Nipples';
-      trait = nameForNipplesTrait(_index);
-    } else if (_offset == 38) {
-      group = 'Shirt';
-      trait = nameForShirtTrait(_index);
-    } else if (_offset == 42) {
-      group = 'Tie';
-      trait = nameForTieTrait(_index);
-    } else if (_offset == 46) {
-      group = 'Blazer';
-      trait = nameForBlazerTrait(_index);
-    } else if (_offset == 50) {
-      group = 'T-shirt';
-      trait = nameForTshirtTrait(_index);
-    } else if (_offset == 54) {
-      group = 'Pattern';
-      trait = nameForPatternTrait(_index);
-    } else if (_offset == 60) {
-      group = 'Headwear';
-      trait = nameForHeadwearTrait(_index);
-    } else if (_offset == 66) {
-      group = 'Glasses';
-      trait = nameForGlassesTrait(_index);
-    } else if (_offset == 72) {
       group = 'Collar';
       trait = nameForCollarTrait(_index);
+    } else if (_offset == 38) {
+      group = 'Nipples';
+      trait = nameForNipplesTrait(_index);
+    } else if (_offset == 42) {
+      group = 'Shirt';
+      trait = nameForShirtTrait(_index);
+    } else if (_offset == 46) {
+      group = 'Tie';
+      trait = nameForTieTrait(_index);
+    } else if (_offset == 50) {
+      group = 'Blazer';
+      trait = nameForBlazerTrait(_index);
+    } else if (_offset == 54) {
+      group = 'T-shirt';
+      trait = nameForTshirtTrait(_index);
+    } else if (_offset == 58) {
+      group = 'Pattern';
+      trait = nameForPatternTrait(_index);
+    } else if (_offset == 64) {
+      group = 'Headwear';
+      trait = nameForHeadwearTrait(_index);
+    } else if (_offset == 70) {
+      group = 'Special Headwear';
+      trait = nameForSpecialHeadwearTrait(_index);
     } else if (_offset == 76) {
+      group = 'Glasses';
+      trait = nameForGlassesTrait(_index);
+    } else if (_offset == 82) {
       group = 'Signature';
       trait = 'Natasha';
-    } else if (_offset == 77) {
+    } else if (_offset == 83) {
       group = 'Juicebox';
       trait = 'Yes';
     } else {
@@ -349,83 +480,48 @@ library MeowGatewayUtil {
     }
   }
 
-  function nameForBackgroundTrait(uint8 _index) private pure returns (string memory name) {
-    string[165] memory traits = [
-      'Balloons blue violet',
-      'Balloons grey',
-      'Balloons grey blue',
+  function nameForBackgroundTrait(uint8 _index) private view returns (string memory name) {
+    string[86] memory traits = [
       'Balloons orange',
       'Balloons pink',
       'Balloons white',
       'Blue green',
       'Blue violet',
-      'Clouds blue green',
-      'Clouds blue violet',
       'Clouds green',
       'Clouds green yellow',
       'Clouds grey',
       'Clouds orange',
       'Clouds pink',
-      'Clouds pink green',
       'Clouds white',
       'Diamonds blue green',
-      'Diamonds blue violet',
-      'Diamonds grey',
       'Diamonds pink',
       'Diamonds white',
-      'Ethereum blue green',
-      'Ethereum blue violet',
-      'Ethereum green yellow',
-      'Ethereum grey blue',
-      'Ethereum on blue',
-      'Ethereum on blue green',
       'Ethereum on green',
       'Ethereum on grey',
       'Ethereum on orange',
       'Ethereum on pink',
-      'Ethereum on pink green',
       'Ethereum on white',
-      'Ethereum orange',
-      'Ethereum pink',
-      'Ethereum pink green',
-      'Ethereum white',
       'Fastfood blue green',
       'Fastfood blue violet',
       'Fastfood green yellow',
-      'Fastfood grey blue',
       'Fastfood orange',
-      'Fastfood pink',
       'Fastfood pink green',
       'Fastfood white',
-      'Fireworks blue green',
-      'Fireworks blue violet',
-      'Fireworks pink',
-      'Fireworks pink green',
-      'Fireworks white',
       'Fish blue green',
-      'Fish blue violet',
       'Fish green yellow',
       'Fish grey',
       'Fish orange',
       'Fish pink',
-      'Fish pink green',
       'Fish white',
       'Fishtank blue green',
-      'Fishtank blue violet',
       'Fishtank green yellow',
       'Fishtank grey blue',
       'Fishtank orange',
-      'Fishtank pink',
-      'Fishtank pink green',
       'Fishtank white',
-      'Foodbowl blue green',
-      'Foodbowl blue violet',
       'Foodbowl green yellow',
       'Foodbowl grey',
       'Foodbowl grey blue',
-      'Foodbowl orange',
       'Foodbowl pink',
-      'Foodbowl pink green',
       'Foodbowl white',
       'Green',
       'Green yellow',
@@ -433,87 +529,43 @@ library MeowGatewayUtil {
       'Grey blue',
       'Grey eth on blue',
       'Grey eth on blue green',
-      'Grey eth on green',
-      'Grey eth on grey',
       'Grey eth on orange',
-      'Grey eth on pink',
-      'Grey eth on pink green',
       'Grey eth on white',
-      'JuiceBox black pink',
-      'JuiceBox pink',
-      'Juicebox black blue',
       'Juicebox black blue green',
-      'Juicebox black green yellow',
       'Juicebox black orange',
       'Juicebox black white',
-      'Juicebox blue',
       'Juicebox blue green',
       'Juicebox green yellow',
       'Juicebox orange',
       'Juicebox white',
-      'Milk blue green',
-      'Milk blue violet',
-      'Milk green yellow',
-      'Milk grey',
-      'Milk grey blue',
-      'Milk orange',
-      'Milk pink',
-      'Milk pink green',
-      'Milk white',
       'Milkbox blue green',
-      'Milkbox blue violet',
       'Milkbox green yellow',
       'Milkbox grey blue',
       'Milkbox orange',
       'Milkbox pink',
-      'Milkbox pink green',
       'Milkbox white',
       'Orange',
-      'Pastel eth on blue',
       'Pastel eth on blue green',
-      'Pastel eth on green yellow',
       'Pastel eth on grey',
       'Pastel eth on orange',
       'Pastel eth on pink',
-      'Pastel eth on pink green',
       'Pastel eth on white',
       'Paws blue green',
-      'Paws blue violet',
-      'Paws dark grey',
-      'Paws green yellow',
-      'Paws grey',
       'Paws orange',
       'Paws pink',
-      'Paws pink green',
       'Paws white',
       'Pink',
       'Pink green',
       'Pizza blue green',
-      'Pizza blue violet',
       'Pizza green yellow',
-      'Pizza grey',
-      'Pizza grey blue',
-      'Pizza orange',
       'Pizza pink',
-      'Pizza pink green',
       'Pizza white',
       'Planets',
-      'Rainbow blue green',
-      'Rainbow blue violet',
       'Rainbow green yellow',
-      'Rainbow grey',
       'Rainbow grey blue',
       'Rainbow orange',
-      'Rainbow pink',
-      'Rainbow pink green',
       'Rainbow white',
-      'Sushi blue green',
-      'Sushi blue violet',
       'Sushi green yellow',
-      'Sushi grey blue',
-      'Sushi orange',
-      'Sushi pink',
-      'Sushi pink green',
       'Sushi white',
       'White'
     ];
@@ -521,7 +573,7 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForFurTrait(uint8 _index) private pure returns (string memory name) {
+  function nameForFurTrait(uint8 _index) private view returns (string memory name) {
     string[25] memory traits = [
       'Beige',
       'Black grey mouth',
@@ -553,22 +605,18 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForEarsTrait(uint8 _index) private pure returns (string memory name) {
+  function nameForEarsTrait(uint8 _index) private view returns (string memory name) {
     string[2] memory traits = ['Grey', 'Pink'];
     name = traits[_index];
   }
 
-  function nameForBrowsTrait(uint8 _index) private pure returns (string memory name) {
+  function nameForBrowsTrait(uint8 _index) private view returns (string memory name) {
     string[3] memory traits = ['Pensive', 'Raised', 'Usual'];
     name = traits[_index];
   }
 
-  function nameForEyesTrait(uint8 _index) private pure returns (string memory name) {
-    string[36] memory traits = [
-      'Black',
-      'Black eyelids',
-      'Black left',
-      'Black right up',
+  function nameForEyesTrait(uint8 _index) private view returns (string memory name) {
+    string[32] memory traits = [
       'Blue',
       'Blue eyelids',
       'Blue left',
@@ -605,7 +653,7 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForNoseTrait(uint8 _index) private pure returns (string memory name) {
+  function nameForNoseTrait(uint8 _index) private view returns (string memory name) {
     string[18] memory traits = [
       'Beaming',
       'Black mustache',
@@ -629,17 +677,36 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForNipplesTrait(uint8 _index) private pure returns (string memory name) {
+  function nameForCollarTrait(uint8 _index) private view returns (string memory name) {
+    string[14] memory traits = [
+      'Bell',
+      'Bow black',
+      'Cape black',
+      'Cape blue',
+      'Cape red',
+      'Golden',
+      'None',
+      'Pink',
+      'Scarf pink',
+      'Scarf rainbow',
+      'Scarf striped red white',
+      'Wings black',
+      'Wings black pink',
+      'Wings white'
+    ];
+    name = traits[_index];
+  }
+
+  function nameForNipplesTrait(uint8 _index) private view returns (string memory name) {
     string[2] memory traits = ['Natural', 'Prude'];
     name = traits[_index];
   }
 
-  function nameForShirtTrait(uint8 _index) private pure returns (string memory name) {
-    string[11] memory traits = [
+  function nameForShirtTrait(uint8 _index) private view returns (string memory name) {
+    string[10] memory traits = [
       'Blue',
       'Fish',
       'Food',
-      'Math',
       'Milk',
       'Orange',
       'Paw',
@@ -651,7 +718,7 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForTieTrait(uint8 _index) private pure returns (string memory name) {
+  function nameForTieTrait(uint8 _index) private view returns (string memory name) {
     string[10] memory traits = [
       'Black bow',
       'Blue',
@@ -667,17 +734,16 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForBlazerTrait(uint8 _index) private pure returns (string memory name) {
-    string[7] memory traits = ['Black', 'Blue', 'Denim', 'Ethereum', 'Grey', 'Nothing', 'Whte'];
+  function nameForBlazerTrait(uint8 _index) private view returns (string memory name) {
+    string[6] memory traits = ['Black', 'Blue', 'Denim', 'Grey', 'None', 'White'];
     name = traits[_index];
   }
 
-  function nameForTshirtTrait(uint8 _index) private pure returns (string memory name) {
-    string[13] memory traits = [
+  function nameForTshirtTrait(uint8 _index) private view returns (string memory name) {
+    string[12] memory traits = [
       'Beige',
       'Black',
       'Blue',
-      'Bright blue',
       'Grey',
       'Magenta',
       'Neon green',
@@ -691,8 +757,8 @@ library MeowGatewayUtil {
     name = traits[_index];
   }
 
-  function nameForPatternTrait(uint8 _index) private pure returns (string memory name) {
-    string[34] memory traits = [
+  function nameForPatternTrait(uint8 _index) private view returns (string memory name) {
+    string[33] memory traits = [
       'Banana-ol',
       'Banny blockchain',
       'Banny coder',
@@ -705,7 +771,7 @@ library MeowGatewayUtil {
       'Banny yes',
       'Cannabis',
       'Chicken',
-      'Developers-eth-blocks William Tempest',
+      'Diamond',
       'Dog',
       'Donut',
       'Eth',
@@ -713,67 +779,87 @@ library MeowGatewayUtil {
       'Finance William Tempest',
       'Football',
       'Grey eth',
-      'Hemp leave',
+      'Hemp leaf',
       'Juicebox logo',
+      'Mario',
       'Meat',
+      'None',
       'Nyan cat',
-      'One diamond',
-      'One rainbow',
       'Pastel eth',
-      'Patternless',
       'Preppy bear',
       'Quint',
-      'Rene Magritte This is not a pipe',
+      'Rainbow',
+      'Rene Magritte',
       'Sealion',
-      'Sushi',
-      'This is not a pipe Mario'
+      'Sushi'
     ];
     name = traits[_index];
   }
 
-  function nameForHeadwearTrait(uint8 _index) private pure returns (string memory name) {
-    string[31] memory traits = [
+  function nameForHeadwearTrait(uint8 _index) private view returns (string memory name) {
+    string[29] memory traits = [
       'Antlers',
-      'Batman',
       'Bear',
+      'Black Backwards Hat',
       'Black hat',
-      'Bowler hat',
       'Bunny',
-      'Burger',
-      'Candy stripe propellerhat',
-      'Dino',
+      'Cap Ethereum',
+      'Cap Juicebox',
+      'Cap Supercat',
+      'Denim Backwards Hat',
       'Flyagaric',
       'Grey headphones',
+      'Headphones pink',
       'Horns',
-      'Nothing',
-      'Panda',
+      'Ninja Headband',
+      'None',
       'Paperbag',
       'Paperbag not famous',
       'Party hat blue',
       'Party hat green',
       'Party hat pink dotted',
+      'Party hat pink striped',
       'Party hat teal',
       'Pineapple',
+      'Pink Backwards Hat',
       'Pink headphones',
-      'Propellerhat colorful',
-      'Sea lion',
+      'Red Backwards Hat',
       'Sombrero',
-      'Spaceman',
-      'Striped pink party hat',
-      'Swimcap blue',
       'Swimcap white',
-      'Tiger',
+      'Tiger'
+    ];
+    name = traits[_index];
+  }
+
+  function nameForSpecialHeadwearTrait(uint8 _index) private view returns (string memory name) {
+    string[19] memory traits = [
+      'Aviator helmet',
+      'Batman',
+      'Bowler hat',
+      'Burger',
+      'Caesar',
+      'Candy stripe propellerhat',
+      'Chromie',
+      'Cowboy Hat',
+      'Dino',
+      'Ducky',
+      'Flame',
+      'Halo',
+      'Panda',
+      'Propellerhat colorful',
+      'Raincloud',
+      'Sea lion',
+      'Spaceman',
+      'Thunderstorm',
       'Unicorn'
     ];
     name = traits[_index];
   }
 
-  function nameForGlassesTrait(uint8 _index) private pure returns (string memory name) {
-    string[37] memory traits = [
+  function nameForGlassesTrait(uint8 _index) private view returns (string memory name) {
+    string[35] memory traits = [
       '3D',
-      '3D', // todo
-      'Black 3D',
-      'Black amethyst', // todo
+      'Black_3D',
       'Black amethyst',
       'Black bubblegum',
       'Black ice',
@@ -792,9 +878,9 @@ library MeowGatewayUtil {
       'Neon green',
       'Neon pink',
       'Neon yellow',
-      'Nothing',
-      'Orange cateye',
+      'None',
       'Orange',
+      'Orange cateye',
       'Pink cateye',
       'Pirate patch',
       'Rainbow',
@@ -807,26 +893,6 @@ library MeowGatewayUtil {
       'White ice',
       'White rainbow',
       'Yellow'
-    ];
-    name = traits[_index];
-  }
-
-  function nameForCollarTrait(uint8 _index) private pure returns (string memory name) {
-    string[14] memory traits = [
-      'Bell',
-      'Bow black',
-      'Cape black',
-      'Cape blue',
-      'Cape red',
-      'Golden',
-      'No collar',
-      'Pink',
-      'Scarf pink',
-      'Scarf rainbow',
-      'Scarf striped red white',
-      'Wings black',
-      'Wings black pink',
-      'Wings white'
     ];
     name = traits[_index];
   }
