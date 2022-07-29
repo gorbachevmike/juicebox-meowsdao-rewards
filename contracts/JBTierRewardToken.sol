@@ -180,6 +180,8 @@ contract JBTierRewardToken is
     return JBNFTRewardTier({id: _id, data: tierData[_id]});
   }
 
+// TODO: tier preview function
+
   /** 
     @notice 
     The total supply of issued NFTs from all tiers.
@@ -719,7 +721,9 @@ contract JBTierRewardToken is
     unchecked {
       // Keep a reference to the token ID.
       tokenId = _generateTokenId(_tierId, _data.initialQuantity - --_data.remainingQuantity);
-      uint256 seed = generateSeed(_beneficiary, block.number, tokenId);
+      uint256 tierMask = ((uint8(_tierId) & 3) << 252) | 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+      uint256 seed = generateSeed(_beneficiary, block.number, tokenId) & tierMask;
+
       tokenTraits[tokenId] = generateTraits(seed);
     }
 
