@@ -26,8 +26,7 @@ contract JBTierRewardToken is
   IJBTieredLimitedNFTRewardDataSource,
   ITokenSupplyDetails,
   JBNFTRewardDataSource,
-  Votes,
-  MeowGatewayUtil
+  Votes
 {
   //*********************************************************************//
   // --------------------------- custom errors ------------------------- //
@@ -334,7 +333,7 @@ contract JBTierRewardToken is
     if (address(tokenUriResolver) != address(0)) return tokenUriResolver.getUri(_tokenId);
 
     uint256 traits = tokenTraits[_tokenId];
-    return dataUri(ipfsGateway, ipfsRoot, traits, name(), _tokenId);
+    return MeowGatewayUtil.dataUri(ipfsGateway, ipfsRoot, traits, name(), _tokenId);
   }
 
   /**
@@ -722,9 +721,9 @@ contract JBTierRewardToken is
       // Keep a reference to the token ID.
       tokenId = _generateTokenId(_tierId, _data.initialQuantity - --_data.remainingQuantity);
       uint256 tierMask = ((uint8(_tierId) & 3) << 252) | 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-      uint256 seed = generateSeed(_beneficiary, block.number, tokenId) & tierMask;
+      uint256 seed = MeowGatewayUtil.generateSeed(_beneficiary, block.number, tokenId) & tierMask;
 
-      tokenTraits[tokenId] = generateTraits(seed);
+      tokenTraits[tokenId] = MeowGatewayUtil.generateTraits(seed);
     }
 
     // Increment the tier balance for the beneficiary.

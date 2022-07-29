@@ -4,48 +4,28 @@ pragma solidity 0.8.6;
 import '@openzeppelin/contracts/utils/Base64.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
 
-// stack[0] = uint64(uint8(_traits)); // Background 165
-// stack[1] = uint64(uint8(_traits >> 8) & 63); // Fur 25
-// stack[2] = uint64(uint8(_traits >> 14) & 15); // Ears 2
-// stack[3] = uint64(uint8(_traits >> 18) & 15); // Brows 3
-// stack[4] = uint64(uint8(_traits >> 22) & 63); // Eyes 36
-// stack[5] = uint64(uint8(_traits >> 28) & 15); // Nose 18
-
-// stack[6] = uint64(uint8(_traits >> 34) & 15); // Nipples 2 // naked
-// stack[6] = uint64(uint8(_traits >> 38) & 15); // Shirt 11 // shirt
-// stack[7] = uint64(uint8(_traits >> 42) & 15); // Tie 10 // shirt
-// stack[8] = uint64(uint8(_traits >> 46) & 15); // Blazer 7 // shirt
-// stack[6] = uint64(uint8(_traits >> 50) & 15); // T-shirt 13 // tshirt
-// stack[7] = uint64(uint8(_traits >> 54) & 63); // Pattern 34 // tshirt
-
-// stack[7] = uint64(uint8(_traits >> 60) & 63); // Headwear 31
-// stack[8] = uint64(uint8(_traits >> 66) & 63); // Glasses 37
-// stack[9] = uint64(uint8(_traits >> 72) & 15); // Collar 14 // naked
-// stack[10] = uint64(uint8(_traits >> 76) & 1); // Signature 1
-// stack[11] = uint64(uint8(_traits >> 77) & 1); // Juicebox 1
-
 /**
   @notice MEOWs DAO NFT helper functions for managing IPFS image assets.
  */
-contract MeowGatewayUtil {
-  uint8[12] private nakedOffsets = [0, 8, 14, 18, 22, 28, 34, 60, 66, 72, 76, 77];
-  uint8[12] private nakedCardinality = [165, 25, 2, 3, 36, 18, 2, 31, 37, 14, 1, 1];
-  uint8[12] private nakedMask = [255, 63, 15, 15, 63, 63, 15, 63, 63, 15, 1, 1];
+library MeowGatewayUtil {
+  function nakedOffsets() private view returns (uint8[12] memory) { return [0, 8, 14, 18, 22, 28, 34, 60, 66, 72, 76, 77]; }
+  function nakedCardinality() private pure returns (uint8[12] memory) { return [165, 25, 2, 3, 36, 18, 2, 31, 37, 14, 1, 1]; }
+  function nakedMask() private pure returns (uint8[12] memory) { return [255, 63, 15, 15, 63, 63, 15, 63, 63, 15, 1, 1]; }
 
-  uint8[12] private tShirtOffsets = [0, 8, 14, 18, 22, 28, 50, 54, 60, 66, 76, 77];
-  uint8[12] private tShirtCardinality = [165, 25, 2, 3, 36, 18, 13, 34, 31, 37, 1, 1];
-  uint8[12] private tShirtMask = [255, 63, 15, 15, 63, 63, 15, 63, 63, 63, 1, 1];
+  function tShirtOffsets() private pure returns (uint8[12] memory) { return [0, 8, 14, 18, 22, 28, 50, 54, 60, 66, 76, 77]; }
+  function tShirtCardinality() private pure returns (uint8[12] memory) { return [165, 25, 2, 3, 36, 18, 13, 34, 31, 37, 1, 1]; }
+  function tShirtMask() private pure returns (uint8[12] memory) { return [255, 63, 15, 15, 63, 63, 15, 63, 63, 63, 1, 1]; }
 
-  uint8[13] private shirtOffsets = [0, 8, 14, 18, 22, 28, 38, 42, 46, 60, 66, 76, 77];
-  uint8[13] private shirtCardinality = [165, 25, 2, 3, 36, 18, 11, 10, 7, 31, 37, 1, 1];
-  uint8[13] private shirtMask = [255, 63, 15, 15, 63, 63, 15, 15, 15, 63, 63, 1, 1];
+  function shirtOffsets() private pure returns (uint8[13] memory) { return [0, 8, 14, 18, 22, 28, 38, 42, 46, 60, 66, 76, 77]; }
+  function shirtCardinality() private pure returns (uint8[13] memory) { return [165, 25, 2, 3, 36, 18, 11, 10, 7, 31, 37, 1, 1]; }
+  function shirtMask() private pure returns (uint8[13] memory) { return [255, 63, 15, 15, 63, 63, 15, 15, 15, 63, 63, 1, 1]; }
 
   function validateTraits(uint256 _traits) public view returns (bool) {
     uint8 population = uint8(_traits >> 252) & 15;
 
     if (population == 0) {
       for (uint8 i = 0; i != 12; ) {
-        if (uint8(_traits >> nakedOffsets[i]) & nakedMask[i] > nakedCardinality[i]) {
+        if (uint8(_traits >> nakedOffsets()[i]) & nakedMask()[i] > nakedCardinality()[i]) {
           return false;
         }
         ++i;
@@ -54,7 +34,7 @@ contract MeowGatewayUtil {
       return true;
     } else if (population == 1) {
       for (uint8 i = 0; i != 12; ) {
-        if (uint8(_traits >> tShirtOffsets[i]) & tShirtMask[i] > tShirtCardinality[i]) {
+        if (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i] > tShirtCardinality()[i]) {
           return false;
         }
         ++i;
@@ -62,7 +42,7 @@ contract MeowGatewayUtil {
       return true;
     } else {
       for (uint8 i = 0; i != 13; ) {
-        if (uint8(_traits >> shirtOffsets[i]) & shirtMask[i] > shirtCardinality[i]) {
+        if (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i] > shirtCardinality()[i]) {
           return false;
         }
         ++i;
@@ -76,27 +56,27 @@ contract MeowGatewayUtil {
     uint8 population = uint8(_seed >> 252) & 15;
 
     if (population == 0) {
-      traits = uint256(uint8(_seed) % nakedCardinality[0]);
+      traits = uint256(uint8(_seed) % nakedCardinality()[0]);
       for (uint8 i = 1; i != 12; ) {
         traits |=
-          uint256((uint8(_seed >> nakedOffsets[i]) % nakedCardinality[i]) + 1) <<
-          nakedOffsets[i];
+          uint256((uint8(_seed >> nakedOffsets()[i]) % nakedCardinality()[i]) + 1) <<
+          nakedOffsets()[i];
         ++i;
       }
     } else if (population == 1) {
-      traits = uint256(uint8(_seed) % tShirtCardinality[0]);
+      traits = uint256(uint8(_seed) % tShirtCardinality()[0]);
       for (uint8 i = 1; i != 12; ) {
         traits |=
-          uint256((uint8(_seed >> tShirtOffsets[i]) % tShirtCardinality[i]) + 1) <<
-          tShirtOffsets[i];
+          uint256((uint8(_seed >> tShirtOffsets()[i]) % tShirtCardinality()[i]) + 1) <<
+          tShirtOffsets()[i];
         ++i;
       }
     } else {
-      traits = uint256(uint8(_seed) % shirtCardinality[0]);
+      traits = uint256(uint8(_seed) % shirtCardinality()[0]);
       for (uint8 i = 1; i != 13; ) {
         traits |=
-          uint256((uint8(_seed >> shirtOffsets[i]) % shirtCardinality[i]) + 1) <<
-          shirtOffsets[i];
+          uint256((uint8(_seed >> shirtOffsets()[i]) % shirtCardinality()[i]) + 1) <<
+          shirtOffsets()[i];
         ++i;
       }
     }
@@ -108,35 +88,35 @@ contract MeowGatewayUtil {
     string memory group;
     string memory name;
     if (population == 0) {
-      (group, name) = nameForTraits(0, (uint8(_traits >> nakedOffsets[0]) & nakedMask[0]) - 1);
+      (group, name) = nameForTraits(0, (uint8(_traits >> nakedOffsets()[0]) & nakedMask()[0]) - 1);
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
 
       for (uint8 i = 1; i != 12; ) {
         (group, name) = nameForTraits(
-          nakedOffsets[i],
-          (uint8(_traits >> nakedOffsets[i]) & nakedMask[i]) - 1 // NOTE trait ids are not 0-based
+          nakedOffsets()[i],
+          (uint8(_traits >> nakedOffsets()[i]) & nakedMask()[i]) - 1 // NOTE trait ids are not 0-based
         );
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
       }
     } else if (population == 1) {
-      (group, name) = nameForTraits(0, (uint8(_traits >> tShirtOffsets[0]) & tShirtMask[0]) - 1);
+      (group, name) = nameForTraits(0, (uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0]) - 1);
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
       for (uint8 i = 1; i != 12; ) {
         (group, name) = nameForTraits(
-          tShirtOffsets[i],
-          (uint8(_traits >> tShirtOffsets[i]) & tShirtMask[i]) - 1 // NOTE trait ids are not 0-based
+          tShirtOffsets()[i],
+          (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i]) - 1 // NOTE trait ids are not 0-based
         );
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
       }
     } else {
-      (group, name) = nameForTraits(0, (uint8(_traits >> shirtOffsets[0]) & shirtMask[0]) - 1);
+      (group, name) = nameForTraits(0, (uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0]) - 1);
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
       for (uint8 i = 1; i != 13; ) {
         (group, name) = nameForTraits(
-          shirtOffsets[i],
-          (uint8(_traits >> shirtOffsets[i]) & shirtMask[i]) - 1 // NOTE trait ids are not 0-based
+          shirtOffsets()[i],
+          (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i]) - 1 // NOTE trait ids are not 0-based
         );
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
@@ -173,11 +153,11 @@ contract MeowGatewayUtil {
     string memory _ipfsGateway,
     string memory _ipfsRoot,
     uint256 _traits
-  ) internal view returns (string memory image) {
+  ) private view returns (string memory image) {
     image = __imageTag(
       _ipfsGateway,
       _ipfsRoot,
-      uint256(uint8(_traits >> nakedOffsets[0]) & nakedMask[0])
+      uint256(uint8(_traits >> nakedOffsets()[0]) & nakedMask()[0])
     );
     for (uint8 i = 1; i < 12; ) {
       image = string(
@@ -186,7 +166,7 @@ contract MeowGatewayUtil {
           __imageTag(
             _ipfsGateway,
             _ipfsRoot,
-            uint256(uint8(_traits >> nakedOffsets[i]) & nakedMask[i]) << nakedOffsets[i]
+            uint256(uint8(_traits >> nakedOffsets()[i]) & nakedMask()[i]) << nakedOffsets()[i]
           )
         )
       );
@@ -198,11 +178,11 @@ contract MeowGatewayUtil {
     string memory _ipfsGateway,
     string memory _ipfsRoot,
     uint256 _traits
-  ) internal view returns (string memory image) {
+  ) private view returns (string memory image) {
     image = __imageTag(
       _ipfsGateway,
       _ipfsRoot,
-      uint64(uint8(_traits >> tShirtOffsets[0]) & tShirtMask[0])
+      uint64(uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0])
     );
     for (uint8 i = 1; i < 12; ) {
       image = string(
@@ -211,7 +191,7 @@ contract MeowGatewayUtil {
           __imageTag(
             _ipfsGateway,
             _ipfsRoot,
-            uint64(uint8(_traits >> tShirtOffsets[i]) & tShirtMask[i])
+            uint64(uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i])
           )
         )
       );
@@ -223,11 +203,11 @@ contract MeowGatewayUtil {
     string memory _ipfsGateway,
     string memory _ipfsRoot,
     uint256 _traits
-  ) internal view returns (string memory image) {
+  ) private view returns (string memory image) {
     image = __imageTag(
       _ipfsGateway,
       _ipfsRoot,
-      uint64(uint8(_traits >> shirtOffsets[0]) & shirtMask[0])
+      uint64(uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0])
     );
     for (uint8 i = 1; i < 13; ) {
       image = string(
@@ -236,7 +216,7 @@ contract MeowGatewayUtil {
           __imageTag(
             _ipfsGateway,
             _ipfsRoot,
-            uint64(uint8(_traits >> shirtOffsets[i]) & shirtMask[i])
+            uint64(uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i])
           )
         )
       );
@@ -248,7 +228,7 @@ contract MeowGatewayUtil {
     address _account,
     uint256 _blockNumber,
     uint256 _other
-  ) internal pure returns (uint256 seed) {
+  ) public pure returns (uint256 seed) {
     seed = uint256(keccak256(abi.encodePacked(_account, _blockNumber, _other)));
   }
 
@@ -258,7 +238,7 @@ contract MeowGatewayUtil {
     uint256 _traits,
     string memory _name,
     uint256 _tokenId
-  ) internal view returns (string memory) {
+  ) public view returns (string memory) {
     string memory image = Base64.encode(
       abi.encodePacked(
         '<svg id="token" width="300" height="300" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="bannyPlaceholder">',
@@ -791,9 +771,9 @@ contract MeowGatewayUtil {
   function nameForGlassesTrait(uint8 _index) private pure returns (string memory name) {
     string[37] memory traits = [
       '3D',
-      '3D',
+      '3D', // todo
       'Black 3D',
-      'Black amethyst',
+      'Black amethyst', // todo
       'Black amethyst',
       'Black bubblegum',
       'Black ice',
