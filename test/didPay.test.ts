@@ -24,9 +24,14 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
 
     await mockJbDirectory.mock.isTerminalOf.withArgs(PROJECT_ID, projectTerminal.address).returns(true);
     await mockJbDirectory.mock.isTerminalOf.withArgs(PROJECT_ID, beneficiary.address).returns(false);
-    // 
 
-    const jbTierRewardTokenFactory = await ethers.getContractFactory('JBTierRewardToken', deployer);
+    const meowGatewayUtilFactory = await ethers.getContractFactory('MeowGatewayUtil', deployer);
+    const meowGatewayUtilLibrary = await meowGatewayUtilFactory.connect(deployer).deploy();
+
+    const jbTierRewardTokenFactory = await ethers.getContractFactory('JBTierRewardToken', {
+        libraries: { MeowGatewayUtil: meowGatewayUtilLibrary.address },
+        signer: deployer
+    });
     jbTierRewardToken = await jbTierRewardTokenFactory
       .connect(deployer)
       .deploy(
