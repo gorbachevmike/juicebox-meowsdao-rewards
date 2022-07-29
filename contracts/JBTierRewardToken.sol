@@ -720,8 +720,10 @@ contract JBTierRewardToken is
     unchecked {
       // Keep a reference to the token ID.
       tokenId = _generateTokenId(_tierId, _data.initialQuantity - --_data.remainingQuantity);
-      uint256 tierMask = ((uint8(_tierId) & 3) << 252) | 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-      uint256 seed = MeowGatewayUtil.generateSeed(_beneficiary, block.number, tokenId) & tierMask;
+
+      uint256 seed = MeowGatewayUtil.generateSeed(_beneficiary, block.number, tokenId)
+        & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        | _tierId << 252;
 
       tokenTraits[tokenId] = MeowGatewayUtil.generateTraits(seed);
     }
