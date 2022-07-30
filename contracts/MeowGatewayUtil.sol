@@ -83,7 +83,7 @@ library MeowGatewayUtil {
   function validateTraits(uint256 _traits) public view returns (bool) {
     uint8 population = uint8(_traits >> 252);
 
-    if (population == 1) {
+    if (population == 1 || population == 2) {
       for (uint8 i = 0; i != 13; ) {
         if (uint8(_traits >> shirtOffsets()[i]) & shirtMask()[i] > shirtCardinality()[i]) {
           return false;
@@ -92,7 +92,7 @@ library MeowGatewayUtil {
       }
 
       return true;
-    } else if (population == 2) {
+    } else if (population == 3) {
       for (uint8 i = 0; i != 12; ) {
         if (uint8(_traits >> tShirtOffsets()[i]) & tShirtMask()[i] > tShirtCardinality()[i]) {
           return false;
@@ -100,7 +100,7 @@ library MeowGatewayUtil {
         ++i;
       }
       return true;
-    } else if (population == 3) {
+    } else if (population == 4) {
       for (uint8 i = 0; i != 12; ) {
         if (uint8(_traits >> nakedOffsets()[i]) & nakedMask()[i] > nakedCardinality()[i]) {
           return false;
@@ -109,7 +109,7 @@ library MeowGatewayUtil {
       }
 
       return true;
-    } else if (population == 4) {
+    } else if (population == 5) {
       for (uint8 i = 0; i != 12; ) {
         if (
           uint8(_traits >> specialNakedOffsets()[i]) & specialNakedMask()[i] >
@@ -127,7 +127,21 @@ library MeowGatewayUtil {
   function generateTraits(uint256 _seed) public view returns (uint256 traits) {
     uint8 population = uint8(_seed >> 252);
 
-    if (population == 1) {
+    if (population == 1) { // tier 1 is expected to be a free mint
+        traits = 9671406556917033397649408
+            | 4835703278458516698824704
+            | 1586715138244200791801856
+            | 276701161105643274240
+            | 5629499534213120
+            | 351843720888320
+            | 43980465111040
+            | 805306368
+            | 33554432
+            | 786432
+            | 16384
+            | 4352
+            | 86; // TODO: free mint
+    } else if (population == 2) {
       traits = uint256(uint8(_seed) % shirtCardinality()[0]);
       for (uint8 i = 1; i != 13; ) {
         traits |=
@@ -135,7 +149,7 @@ library MeowGatewayUtil {
           shirtOffsets()[i];
         ++i;
       }
-    } else if (population == 2) {
+    } else if (population == 3) {
       traits = uint256(uint8(_seed) % tShirtCardinality()[0]);
       for (uint8 i = 1; i != 12; ) {
         traits |=
@@ -143,7 +157,7 @@ library MeowGatewayUtil {
           tShirtOffsets()[i];
         ++i;
       }
-    } else if (population == 3) {
+    } else if (population == 4) {
       traits = uint256(uint8(_seed) % nakedCardinality()[0]);
       for (uint8 i = 1; i != 12; ) {
         traits |=
@@ -151,7 +165,7 @@ library MeowGatewayUtil {
           nakedOffsets()[i];
         ++i;
       }
-    } else if (population == 4) {
+    } else if (population == 5) {
       traits = uint256(uint8(_seed) % specialNakedCardinality()[0]);
       for (uint8 i = 1; i != 12; ) {
         traits |=
@@ -169,7 +183,7 @@ library MeowGatewayUtil {
 
     string memory group;
     string memory name;
-    if (population == 1) {
+    if (population == 1 || population == 2) {
       (group, name) = nameForTraits(0, (uint8(_traits >> shirtOffsets()[0]) & shirtMask()[0]) - 1);
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
       for (uint8 i = 1; i != 13; ) {
@@ -180,7 +194,7 @@ library MeowGatewayUtil {
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
       }
-    } else if (population == 2) {
+    } else if (population == 3) {
       (group, name) = nameForTraits(
         0,
         (uint8(_traits >> tShirtOffsets()[0]) & tShirtMask()[0]) - 1
@@ -194,7 +208,7 @@ library MeowGatewayUtil {
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
       }
-    } else if (population == 3) {
+    } else if (population == 4) {
       (group, name) = nameForTraits(0, (uint8(_traits >> nakedOffsets()[0]) & nakedMask()[0]) - 1);
       names = string(abi.encodePacked('"', group, '":"', name, '"'));
 
@@ -206,7 +220,7 @@ library MeowGatewayUtil {
         names = string(abi.encodePacked(names, ',"', group, '":"', name, '"'));
         ++i;
       }
-    } else if (population == 4) {
+    } else if (population == 5) {
       (group, name) = nameForTraits(
         0,
         (uint8(_traits >> specialNakedOffsets()[0]) & specialNakedMask()[0]) - 1
@@ -240,13 +254,13 @@ library MeowGatewayUtil {
   ) public view returns (string memory image) {
     uint8 population = uint8(_traits >> 252);
 
-    if (population == 1) {
+    if (population == 1 || population == 2) {
       image = getShirtStack(_ipfsGateway, _ipfsRoot, _traits);
-    } else if (population == 2) {
-      image = getTShirtStack(_ipfsGateway, _ipfsRoot, _traits);
     } else if (population == 3) {
-      image = getNakedStack(_ipfsGateway, _ipfsRoot, _traits);
+      image = getTShirtStack(_ipfsGateway, _ipfsRoot, _traits);
     } else if (population == 4) {
+      image = getNakedStack(_ipfsGateway, _ipfsRoot, _traits);
+    } else if (population == 5) {
       image = getSpecialNakedStack(_ipfsGateway, _ipfsRoot, _traits);
     }
   }

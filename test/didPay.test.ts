@@ -45,6 +45,14 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
                 'bafybeifthvccjjxaqlzwvjgvlsgqfygqugww4jdegrltrfrn72mvlrjobu/',
                 deployer.address,
                 [{
+                    contributionFloor: ethers.utils.parseEther('0.00001'),
+                    lockedUntil: 0,
+                    remainingQuantity: 20,
+                    initialQuantity: 20,
+                    votingUnits: 10000,
+                    reservedRate: 10000,
+                    tokenUri: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                }, {
                     contributionFloor: ethers.utils.parseEther('1'),
                     lockedUntil: 0,
                     remainingQuantity: 20,
@@ -82,13 +90,15 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
             );
     });
 
-    it('Mint tier-1 token', async () => {
-        for (let i = 0; i != 4; i++) {
+    it('Mint token', async () => {
+        const baseContribution = ethers.utils.parseEther('0.00001');
+        for (let i = 0; i != 5; i++) {
+            const contribution = baseContribution.add(ethers.utils.parseEther(`${i}`));
             await expect(jbTierRewardToken.connect(projectTerminal).didPay({
                 payer: beneficiary.address,
                 projectId: PROJECT_ID,
                 currentFundingCycleConfiguration: 0,
-                amount: { token: ethToken, value: ethers.utils.parseEther(`${i + 1}`), decimals: 18, currency: CURRENCY_ETH },
+                amount: { token: ethToken, value: contribution, decimals: 18, currency: CURRENCY_ETH },
                 projectTokenCount: 0,
                 beneficiary: beneficiary.address,
                 preferClaimedTokens: true,
@@ -102,7 +112,7 @@ describe('MEOWs DAO Token Mint Tests: JBX Delegate', function () {
 
             let content = tokenUri;
             content = Buffer.from(content.slice(29), 'base64').toString('utf-8');
-            content = JSON.parse(content)['image'];
+            // content = JSON.parse(content)['image'];
             // content = Buffer.from(content.slice(26), 'base64').toString('utf-8');
             fs.writeFileSync(`tier-${i + 1}-token.txt`, content);
         }

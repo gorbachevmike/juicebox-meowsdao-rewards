@@ -122,7 +122,7 @@ contract JBTierRewardToken is
 
   /** 
     @notice
-    The beneficiary of reserved tokens.
+    Map of token ids to traits.
   */
   mapping(uint256 => uint256) public tokenTraits;
 
@@ -142,6 +142,19 @@ contract JBTierRewardToken is
   //*********************************************************************//
   // ------------------------- external views -------------------------- //
   //*********************************************************************//
+
+  /**
+    @notice Returns a sample NFT asset for a given amount and contribution address.
+   */
+  function preview(uint256 _amount, address _account) external view returns (string memory) {
+    uint256 tierId = _bestAvailableTier(_amount);
+
+    uint256 seed = (MeowGatewayUtil.generateSeed(_account, block.number, 0) &
+      0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) | (tierId << 252);
+
+    uint256 sampleTraits = MeowGatewayUtil.generateTraits(seed);
+    return MeowGatewayUtil.dataUri(ipfsGateway, ipfsRoot, sampleTraits, name(), 0);
+  }
 
   /** 
     @notice
@@ -178,8 +191,6 @@ contract JBTierRewardToken is
   function tier(uint256 _id) external view override returns (JBNFTRewardTier memory _tier) {
     return JBNFTRewardTier({id: _id, data: tierData[_id]});
   }
-
-// TODO: tier preview function
 
   /** 
     @notice 
@@ -589,12 +600,11 @@ contract JBTierRewardToken is
 
   /** 
     @notice
-    Mints a token in the best available tier.
+    Finds the best best available tier given the contribution amount. Will return 0 is nothing is matched.
 
     @param _amount The amount to base the mint on.
-    @param _beneficiary The address to mint for.
   */
-  function _mintBestAvailableTier(uint256 _amount, address _beneficiary) internal {
+  function _bestAvailableTier(uint256 _amount) internal view returns (uint256) {
     // Keep a reference to the number of tiers.
     uint256 _numberOfTiers = numberOfTiers;
 
@@ -628,6 +638,20 @@ contract JBTierRewardToken is
         --_i;
       }
     }
+
+    return _bestTierId;
+  }
+
+  /** 
+    @notice
+    Mints a token in the best available tier.
+
+    @param _amount The amount to base the mint on.
+    @param _beneficiary The address to mint for.
+  */
+  function _mintBestAvailableTier(uint256 _amount, address _beneficiary) internal {
+    // Keep a reference to the best tier's ID.
+    uint256 _bestTierId = _bestAvailableTier(_amount);
 
     // If there's no best tier, return.
     if (_bestTierId == 0) return;
@@ -721,9 +745,8 @@ contract JBTierRewardToken is
       // Keep a reference to the token ID.
       tokenId = _generateTokenId(_tierId, _data.initialQuantity - --_data.remainingQuantity);
 
-      uint256 seed = MeowGatewayUtil.generateSeed(_beneficiary, block.number, tokenId)
-        & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        | _tierId << 252;
+      uint256 seed = (MeowGatewayUtil.generateSeed(_beneficiary, block.number, tokenId) &
+        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) | (_tierId << 252);
 
       tokenTraits[tokenId] = MeowGatewayUtil.generateTraits(seed);
     }
