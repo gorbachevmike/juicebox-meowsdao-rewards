@@ -73,7 +73,7 @@ async function main() {
             deployer.address
         );
 
-    await token.deployed();
+    await token.deployed(); // 0x3646743730d2B4cbcA43d1E5877050DBd919C6EE
 
     try {
         await hre.run('verify:verify', {

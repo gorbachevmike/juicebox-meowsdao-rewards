@@ -79,6 +79,21 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
    */
   error CLAIMS_EXHAUSTED();
 
+  error MINT_NOT_STARTED();
+  error MINT_CONCLUDED();
+
+  modifier onlyDuringMintPeriod() {
+    if (mintPeriodStart != 0 && mintPeriodStart > block.timestamp) {
+      revert MINT_NOT_STARTED();
+    }
+
+    if (mintPeriodEnd != 0 && mintPeriodEnd < block.timestamp) {
+      revert MINT_CONCLUDED();
+    }
+
+    _;
+  }
+
   address public constant WETH9 = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
   address public constant DAI = address(0x6B175474E89094C44Da98b954EedeAC495271d0F);
   // IQuoter public constant uniswapQuoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
@@ -98,6 +113,8 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
   mapping(address => bool) public acceptableTokens;
   bool immediateTokenLiquidation;
   uint256 tokenPriceMargin = 10_000; // in bps
+  uint128 public mintPeriodStart;
+  uint128 public mintPeriodEnd;
 
   mapping(address => uint256) public claimedMerkleAllowance;
   uint256 public totalSupply;
@@ -127,14 +144,14 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     @notice Creates the NFT contract.
 
     @param _name Token name.
-    @param  _symbol Token symbol
-    @param  _baseUri Base URI, initially expected to point at generic, "unrevealed" metadata json.
-    @param  _contractUri OpenSea-style contract metadata URI.
-    @param  _jbxProjectId Juicebox project id that will be paid the proceeds of the sale.
-    @param  _jbxDirectory Juicebox directory to determine payment destination.
-    @param  _maxSupply Max NFT supply.
-    @param  _unitPrice Price per token expressed in Ether.
-    @param  _mintAllowance Per-user mint cap.
+    @param _symbol Token symbol
+    @param _baseUri Base URI, initially expected to point at generic, "unrevealed" metadata json.
+    @param _contractUri OpenSea-style contract metadata URI.
+    @param _jbxProjectId Juicebox project id that will be paid the proceeds of the sale.
+    @param _jbxDirectory Juicebox directory to determine payment destination.
+    @param _maxSupply Max NFT supply.
+    @param _unitPrice Price per token expressed in Ether.
+    @param _mintAllowance Per-user mint cap.
    */
   constructor(
     string memory _name,
@@ -146,8 +163,8 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     uint256 _maxSupply,
     uint256 _unitPrice,
     uint256 _mintAllowance,
-    IQuoter _uniswapQuoter, // TODO: remove
-    ISwapRouter _uniswapRouter // TODO: remove
+    uint128 _mintPeriodStart,
+    uint128 _mintPeriodEnd
   ) ERC721(_name, _symbol) {
     baseUri = _baseUri;
     contractUri = _contractUri;
@@ -156,8 +173,8 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     maxSupply = _maxSupply;
     unitPrice = _unitPrice;
     mintAllowance = _mintAllowance;
-    uniswapQuoter = _uniswapQuoter;
-    uniswapRouter = _uniswapRouter;
+    mintPeriodStart = _mintPeriodStart;
+    mintPeriodEnd = _mintPeriodEnd;
   }
 
   //*********************************************************************//
@@ -187,7 +204,7 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
 
     @dev Proceeds are forwarded to the default jbx terminal for the project id set in the constructor. Payment will fail if the terminal is not set in the jbx directory.
    */
-  function mint() public payable nonReentrant returns (uint256 tokenId) {
+  function mint() public payable nonReentrant onlyDuringMintPeriod returns (uint256 tokenId) {
     if (totalSupply == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
@@ -199,7 +216,7 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
 
     // TODO: consider beaking this out
     uint256 expectedPrice;
-    if (accountBalance != 0 &&  accountBalance != 2 && accountBalance != 4) {
+    if (accountBalance != 0 && accountBalance != 2 && accountBalance != 4) {
       expectedPrice = accountBalance * unitPrice;
     }
     if (msg.value != expectedPrice) {
@@ -220,7 +237,16 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
         msg.sender,
         0,
         false,
-        string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', msg.value.toString())),
+        string(
+          abi.encodePacked(
+            'at ',
+            block.number.toString(),
+            ' ',
+            msg.sender,
+            ' purchased a kitty cat for ',
+            msg.value.toString()
+          )
+        ),
         abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
       );
     }
@@ -228,14 +254,20 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     tokenId = generateTokenId(msg.sender, msg.value, block.number);
     _mint(msg.sender, tokenId);
     unchecked {
-        ++totalSupply;
+      ++totalSupply;
     }
   }
 
   /**
     @dev Pays into the appropriate jbx terminal for the token. The terminal may also issue tokens to the calling account.
      */
-  function mint(IERC20 _token) public payable nonReentrant returns (uint256 tokenId) {
+  function mint(IERC20 _token)
+    public
+    payable
+    nonReentrant
+    onlyDuringMintPeriod
+    returns (uint256 tokenId)
+  {
     if (totalSupply == maxSupply) {
       revert SUPPLY_EXHAUSTED();
     }
@@ -297,15 +329,19 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
         IWETH9(WETH9).withdraw(ethProceeds);
 
         terminal.pay(
-            jbxProjectId,
-            ethProceeds,
-            JBTokens.ETH,
-            msg.sender,
-            0,
-            false,
-            // string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
-            '',
-            abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString(), '.')
+          jbxProjectId,
+          ethProceeds,
+          JBTokens.ETH,
+          msg.sender,
+          0,
+          false,
+          // string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+          '',
+          abi.encodePacked(
+            'MEOWsDAO Progeny Noun Token Minted at ',
+            block.timestamp.toString(),
+            '.'
+          )
         );
       } else {
         IJBPaymentTerminal terminal = jbxDirectory.primaryTerminalOf(jbxProjectId, address(_token));
@@ -330,15 +366,15 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
         }
 
         terminal.pay(
-            jbxProjectId,
-            requiredTokenAmount,
-            address(_token),
-            msg.sender,
-            0,
-            false,
-            // string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
-            '',
-            abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString())
+          jbxProjectId,
+          requiredTokenAmount,
+          address(_token),
+          msg.sender,
+          0,
+          false,
+          // string(abi.encodePacked('at ', block.number.toString(), ' ', msg.sender, ' purchased a kitty cat for ', requiredTokenAmount.toString(), ' of ', _token)),
+          '',
+          abi.encodePacked('MEOWsDAO Progeny Noun Token Minted at ', block.timestamp.toString())
         );
       }
     }
@@ -346,8 +382,8 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     tokenId = generateTokenId(msg.sender, msg.value, block.number);
     _mint(msg.sender, tokenId);
     unchecked {
-        ++totalSupply;
-      }
+      ++totalSupply;
+    }
   }
 
   /**
@@ -357,7 +393,7 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     uint256 _index,
     uint256 _allowance,
     bytes32[] calldata _proof
-  ) external payable nonReentrant returns (uint256 tokenId) {
+  ) external payable nonReentrant onlyDuringMintPeriod returns (uint256 tokenId) {
     if (merkleRoot == 0) {
       revert INVALID_ROOT();
     }
@@ -369,16 +405,16 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     }
 
     if (_allowance - claimedMerkleAllowance[msg.sender] == 0) {
-        revert CLAIMS_EXHAUSTED();
+      revert CLAIMS_EXHAUSTED();
     } else {
-        ++claimedMerkleAllowance[msg.sender];
+      ++claimedMerkleAllowance[msg.sender];
     }
 
     tokenId = generateTokenId(msg.sender, msg.value, block.number);
     _mint(msg.sender, tokenId);
     unchecked {
-        ++totalSupply;
-      }
+      ++totalSupply;
+    }
   }
 
   //*********************************************************************//
@@ -397,8 +433,8 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     uint256 tokenId = generateTokenId(_account, unitPrice, block.number);
     _mint(_account, tokenId);
     unchecked {
-        ++totalSupply;
-      }
+      ++totalSupply;
+    }
   }
 
   /**
@@ -424,12 +460,30 @@ contract Token is ERC721, Ownable, ReentrancyGuard {
     acceptableTokens[_token] = _accept;
   }
 
-  function updatePaymentTokenParams(bool _immediateTokenLiquidation, uint256 _tokenPriceMargin) public onlyOwner {
+  function updatePaymentTokenParams(bool _immediateTokenLiquidation, uint256 _tokenPriceMargin)
+    public
+    onlyOwner
+  {
     if (tokenPriceMargin > 10_000) {
       revert INVALID_MARGIN();
     }
     tokenPriceMargin = _tokenPriceMargin;
     immediateTokenLiquidation = _immediateTokenLiquidation;
+  }
+
+  /**
+    @notice Allows adjustment of minting period.
+
+    @param _mintPeriodStart New minting period start.
+    @param _mintPeriodEnd New minting period end.
+   */
+  function updateMintPeriod(uint128 _mintPeriodStart, uint128 _mintPeriodEnd) public onlyOwner {
+    mintPeriodStart = _mintPeriodStart;
+    mintPeriodEnd = _mintPeriodEnd;
+  }
+
+  function updateUnitPrice(uint256 _unitPrice) public onlyOwner {
+    unitPrice = _unitPrice;
   }
 
   /**
