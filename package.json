@@ -46,6 +46,7 @@
   "dependencies": {
     "@jbx-protocol/contracts-v2": "^8.0.2",
     "@openzeppelin/contracts": "^4.7.0",
+    "@openzeppelin/contracts-upgradeable": "^4.7.2",
     "@rari-capital/solmate": "6.4.0"
   }
 }
